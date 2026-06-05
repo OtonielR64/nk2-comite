@@ -146,7 +146,7 @@
           <label>Meses mínimos sin pagar</label>
           <div class="meses-input">
             <input type="number" id="min-meses" value="1" min="1" max="24">
-            <span class="meses-lbl">mes(es) o más</span>
+            <span class="meses-lbl">mes(es) exactos</span>
           </div>
           <span style="font-size:11px;color:var(--muted);margin-top:4px">Se ignora al buscar por interior</span>
         </div>
@@ -377,9 +377,10 @@ async function buscar() {
     } else {
       // Filtro normal por meses y tipo
       let incluir = false;
-      if (tipo === 'admon')         incluir = mAdmon >= minMeses;
-      else if (tipo === 'vehiculo') incluir = d.tieneVeh && mVeh >= minMeses;
-      else                          incluir = (mAdmon >= minMeses) || (d.tieneVeh && mVeh >= minMeses);
+      const enBanda = (m) => m === minMeses;
+      if (tipo === 'admon')         incluir = enBanda(mAdmon);
+      else if (tipo === 'vehiculo') incluir = d.tieneVeh && enBanda(mVeh);
+      else                          incluir = enBanda(mAdmon) || (d.tieneVeh && enBanda(mVeh));
       if (!incluir) return;
     }
 
@@ -403,13 +404,13 @@ async function buscar() {
   const tipoLbl = tipo === 'admon' ? 'Solo Admón' : tipo === 'vehiculo' ? 'Solo Vehículo' : 'Admón + Vehículo';
   document.getElementById('lbl-filtro').textContent = filtroInterior
     ? `Interior: ${filtroInterior} · ${tipoLbl} · Al ${mesRefStr()}`
-    : `Mínimo ${minMeses} mes(es) · ${tipoLbl} · Al ${mesRefStr()}`;
+    : `Exactamente ${minMeses} mes(es) sin pagar · ${tipoLbl} · Al ${mesRefStr()}`;
   document.getElementById('lbl-fecha-ref').textContent = `📅 Fecha de corte: ${mesRefStr()}`;
 
   if (!resultados.length) {
     document.getElementById('tbody-morosos').innerHTML = filtroInterior
       ? `<tr><td colspan="6" class="empty">⚠ Interior <strong>${filtroInterior}</strong> no encontrado en el padrón de habitantes.</td></tr>`
-      : `<tr><td colspan="6" class="empty">✓ No se encontraron morosos con ${minMeses} o más meses sin pagar.</td></tr>`;
+      : `<tr><td colspan="6" class="empty">✓ No se encontraron morosos con exactamente ${minMeses} mes(es) sin pagar.</td></tr>`;
   }
 }
 
