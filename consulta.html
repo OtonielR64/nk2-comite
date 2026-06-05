@@ -28,7 +28,7 @@
   .tab-btn.active-ing { color: var(--ing); border-bottom-color: var(--ing); }
   .tab-btn.active-sal { color: var(--sal); border-bottom-color: var(--sal); }
 
-  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 16px; }
   .panel { display: none; } .panel.active { display: block; }
 
   /* FILTROS */
@@ -61,9 +61,9 @@
   .tabla-header { padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
   .tabla-header span { font-size: 13px; color: var(--muted); }
   .tabla-scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { background: #fafaf8; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-family: 'IBM Plex Mono', monospace; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  td { padding: 10px 12px; border-bottom: 1px solid #f0ede8; vertical-align: middle; white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #fafaf8; padding: 7px 9px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-family: 'IBM Plex Mono', monospace; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 7px 9px; border-bottom: 1px solid #f0ede8; vertical-align: middle; white-space: nowrap; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #fafaf8; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
@@ -71,6 +71,13 @@
   .badge-sal { background: var(--sal-light); color: var(--sal); }
   .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
   .loading-row { text-align: center; padding: 30px; color: var(--muted); font-size: 13px; }
+
+  /* PAGINACIÓN */
+  .paginacion { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: #fafaf8; }
+  .pag-info { font-family: 'IBM Plex Mono', monospace; }
+  .pag-btns { display: flex; gap: 4px; align-items: center; }
+  .pag-btns .btn { padding: 4px 10px; font-size: 12px; }
+  .pag-num { padding: 4px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
 
   /* MODAL */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: center; justify-content: center; }
@@ -195,6 +202,7 @@
           <tbody id="tbody-ing"></tbody>
         </table>
       </div>
+      <div id="pag-ing"></div>
     </div>
   </div>
 
@@ -262,6 +270,7 @@
           <tbody id="tbody-sal"></tbody>
         </table>
       </div>
+      <div id="pag-sal"></div>
     </div>
   </div>
 
@@ -366,6 +375,9 @@ let API_URL = localStorage.getItem('nk2_api_url') || 'https://script.google.com/
 localStorage.setItem('nk2_api_url', API_URL);
 function cerrarSesion() { ['nk2_role','nk2_interior','nk2_nombre'].forEach(k => localStorage.removeItem(k)); location.replace('login.html'); }
 let datosIng = [], datosSal = [];
+let filtradoIng = [], filtradoSal = [];
+let pageIng = 0, pageSal = 0;
+const PAGE_SIZE = 25;
 let pendingDelete = null;
 
 cargarTodo();
@@ -440,10 +452,24 @@ const fmtFecha = f => { if(!f) return ''; const d = new Date(f + 'T12:00:00'); r
 
 // ══════════ INGRESOS ══════════
 function renderIngresos(data) {
+  filtradoIng = data;
+  pageIng = 0;
+  updateStatsIng(data);
+  renderPaginaIng();
+}
+
+function renderPaginaIng() {
   const tbody = document.getElementById('tbody-ing');
-  document.getElementById('lbl-ing').textContent = data.length + ' registros encontrados';
-  if (!data.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">No se encontraron registros</td></tr>'; updateStatsIng([]); return; }
-  tbody.innerHTML = data.map(r => {
+  const total = filtradoIng.length;
+  document.getElementById('lbl-ing').textContent = total + ' registros encontrados';
+  if (!total) {
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">No se encontraron registros</td></tr>';
+    document.getElementById('pag-ing').innerHTML = '';
+    return;
+  }
+  const start = pageIng * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, total);
+  tbody.innerHTML = filtradoIng.slice(start, end).map(r => {
     const gi = datosIng.indexOf(r);
     return `
     <tr>
@@ -456,15 +482,17 @@ function renderIngresos(data) {
       <td>${fmt(r[8])}</td>
       <td>${fmt(r[9])}</td>
       <td><strong>${fmt(r[12])}</strong></td>
-      <td style="max-width:150px;white-space:normal;font-size:12px">${r[13]||''}</td>
+      <td style="max-width:150px;white-space:normal;font-size:11px">${r[13]||''}</td>
       <td>
         <button class="btn btn-sm btn-edit" onclick="abrirEditIng(${gi})">Editar</button>
         <button class="btn btn-sm btn-del" style="margin-left:4px" onclick="abrirConfirm('ing',${gi})">Eliminar</button>
       </td>
     </tr>`;
   }).join('');
-  updateStatsIng(data);
+  renderPagControls('pag-ing', pageIng, total, start, end, 'ing');
 }
+
+function irPaginaIng(p) { pageIng = p; renderPaginaIng(); }
 
 function updateStatsIng(data) {
   document.getElementById('s-i-count').textContent = data.length;
@@ -495,10 +523,24 @@ function limpiarFiltrosIng() {
 
 // ══════════ SALIDAS ══════════
 function renderSalidas(data) {
+  filtradoSal = data;
+  pageSal = 0;
+  updateStatsSal(data);
+  renderPaginaSal();
+}
+
+function renderPaginaSal() {
   const tbody = document.getElementById('tbody-sal');
-  document.getElementById('lbl-sal').textContent = data.length + ' registros encontrados';
-  if (!data.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">No se encontraron registros</td></tr>'; updateStatsSal([]); return; }
-  tbody.innerHTML = data.map(r => {
+  const total = filtradoSal.length;
+  document.getElementById('lbl-sal').textContent = total + ' registros encontrados';
+  if (!total) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No se encontraron registros</td></tr>';
+    document.getElementById('pag-sal').innerHTML = '';
+    return;
+  }
+  const start = pageSal * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, total);
+  tbody.innerHTML = filtradoSal.slice(start, end).map(r => {
     const gi = datosSal.indexOf(r);
     return `
     <tr>
@@ -509,15 +551,17 @@ function renderSalidas(data) {
       <td>${fmt(r[6])}</td>
       <td>${fmt(r[7])}</td>
       <td style="color:${parseFloat(r[8])>0?'var(--amber)':'var(--ing)'}">${fmt(r[8])}</td>
-      <td style="max-width:150px;white-space:normal;font-size:12px">${r[9]||''}</td>
+      <td style="max-width:150px;white-space:normal;font-size:11px">${r[9]||''}</td>
       <td>
         <button class="btn btn-sm btn-edit" onclick="abrirEditSal(${gi})">Editar</button>
         <button class="btn btn-sm btn-del" style="margin-left:4px" onclick="abrirConfirm('sal',${gi})">Eliminar</button>
       </td>
     </tr>`;
   }).join('');
-  updateStatsSal(data);
+  renderPagControls('pag-sal', pageSal, total, start, end, 'sal');
 }
+
+function irPaginaSal(p) { pageSal = p; renderPaginaSal(); }
 
 function updateStatsSal(data) {
   document.getElementById('s-s-count').textContent = data.length;
@@ -546,6 +590,25 @@ function limpiarFiltrosSal() {
   ['f-s-concepto'].forEach(id => document.getElementById(id).value = '');
   ['f-s-cod','f-s-desde','f-s-hasta'].forEach(id => document.getElementById(id).value = '');
   renderSalidas(datosSal);
+}
+
+// ══════════ PAGINACIÓN ══════════
+function renderPagControls(containerId, page, total, start, end, tipo) {
+  const el = document.getElementById(containerId);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  const fn = tipo === 'ing' ? 'irPaginaIng' : 'irPaginaSal';
+  el.innerHTML = `
+    <div class="paginacion">
+      <span class="pag-info">Mostrando ${start+1}–${end} de ${total}</span>
+      <div class="pag-btns">
+        <button class="btn btn-sec" onclick="${fn}(0)" ${page===0?'disabled':''}>«</button>
+        <button class="btn btn-sec" onclick="${fn}(${page-1})" ${page===0?'disabled':''}>‹</button>
+        <span class="pag-num">${page+1} / ${totalPages}</span>
+        <button class="btn btn-sec" onclick="${fn}(${page+1})" ${page===totalPages-1?'disabled':''}>›</button>
+        <button class="btn btn-sec" onclick="${fn}(${totalPages-1})" ${page===totalPages-1?'disabled':''}>»</button>
+      </div>
+    </div>`;
 }
 
 // ══════════ TABS ══════════
