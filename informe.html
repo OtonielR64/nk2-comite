@@ -118,6 +118,7 @@
   <h1>Informe Detallado · NK2</h1>
   <div style="display:flex;align-items:center;gap:16px">
     <a href="index.html" id="lnk-volver">← Volver a Formularios</a>
+    <span id="lbl-usuario" style="font-size:11px;color:#aaa;font-family:'IBM Plex Mono',monospace"></span>
     <button onclick="cerrarSesion()" style="background:#4a4a4a;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;">🔒 Salir</button>
   </div>
 </div>
@@ -283,7 +284,8 @@
 <script>
 const API_URL = localStorage.getItem('nk2_api_url') || 'https://script.google.com/macros/s/AKfycbzeTj0ueflFwujTWR_3nn0kdHNAtu60M7gORXRobGMFf1qGWxpMfd5a6sQ9VSghjeYl/exec';
 localStorage.setItem('nk2_api_url', API_URL);
-function cerrarSesion() { ['nk2_role','nk2_interior','nk2_nombre'].forEach(k => localStorage.removeItem(k)); location.replace('login.html'); }
+function cerrarSesion() { ['nk2_role','nk2_interior','nk2_nombre','nk2_user'].forEach(k => localStorage.removeItem(k)); location.replace('login.html'); }
+(function(){ const u=localStorage.getItem('nk2_user'); const el=document.getElementById('lbl-usuario'); if(u&&el) el.textContent='👤 '+u; })();
 if (localStorage.getItem('nk2_role') === 'visor') {
   const lnk = document.getElementById('lnk-volver');
   if (lnk) { lnk.href = 'informe.html'; lnk.textContent = '← Inicio'; }

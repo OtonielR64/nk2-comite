@@ -333,6 +333,7 @@
     <a href="informe_mensual.html" class="btn-consultas" style="background:#2c5f8a">📄 Informe general</a>
     <a href="reporte_filtro.html" class="btn-consultas" style="background:#5b3a8a">📋 Reporte por fechas</a>
     <a href="residentes.html" class="btn-consultas" style="background:#2a6a5a">🏠 Residentes</a>
+    <span id="lbl-usuario" style="font-size:11px;color:#aaa;font-family:'IBM Plex Mono',monospace"></span>
     <button onclick="cerrarSesion()" style="background:#4a4a4a;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;">🔒 Salir</button>
   </div>
 </div>
@@ -897,7 +898,8 @@ function imprimirReciboHTML(d) {
   setTimeout(() => w.print(), 500);
 }
 localStorage.setItem('nk2_api_url', API_URL);
-function cerrarSesion() { ['nk2_role','nk2_interior','nk2_nombre'].forEach(k => localStorage.removeItem(k)); location.replace('login.html'); }
+function cerrarSesion() { ['nk2_role','nk2_interior','nk2_nombre','nk2_user'].forEach(k => localStorage.removeItem(k)); location.replace('login.html'); }
+(function(){ const u=localStorage.getItem('nk2_user'); const el=document.getElementById('lbl-usuario'); if(u&&el) el.textContent='👤 '+u; })();
 let habitantes = [];
 let personal = [];
 

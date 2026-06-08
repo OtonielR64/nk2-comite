@@ -116,6 +116,7 @@
   <h1>Consultas · NK2</h1>
   <div style="display:flex;align-items:center;gap:16px">
     <a href="index.html">← Volver a Formularios</a>
+    <span id="lbl-usuario" style="font-size:11px;color:#aaa;font-family:'IBM Plex Mono',monospace"></span>
     <button onclick="cerrarSesion()" style="background:#4a4a4a;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;">🔒 Salir</button>
   </div>
 </div>
@@ -373,7 +374,12 @@
 <script>
 let API_URL = localStorage.getItem('nk2_api_url') || 'https://script.google.com/macros/s/AKfycbzeTj0ueflFwujTWR_3nn0kdHNAtu60M7gORXRobGMFf1qGWxpMfd5a6sQ9VSghjeYl/exec';
 localStorage.setItem('nk2_api_url', API_URL);
-function cerrarSesion() { ['nk2_role','nk2_interior','nk2_nombre'].forEach(k => localStorage.removeItem(k)); location.replace('login.html'); }
+function cerrarSesion() { ['nk2_role','nk2_interior','nk2_nombre','nk2_user'].forEach(k => localStorage.removeItem(k)); location.replace('login.html'); }
+(function(){ const u=localStorage.getItem('nk2_user'); const el=document.getElementById('lbl-usuario'); if(u&&el) el.textContent='👤 '+u; })();
+function logAuditEvent(usuario, accion, detalle) {
+  const p = new URLSearchParams({ action: 'logAudit', usuario, accion, detalle });
+  fetch(API_URL + '?' + p).catch(() => {});
+}
 let datosIng = [], datosSal = [];
 let filtradoIng = [], filtradoSal = [];
 let pageIng = 0, pageSal = 0;
@@ -663,7 +669,7 @@ async function guardarEdicionIng() {
   };
   try {
     const res = await apiFetch('updateIngreso', params);
-    if(res.ok){ cerrarModal('modal-ing'); await cargarTodo(); alert('Registro actualizado correctamente.'); }
+    if(res.ok){ cerrarModal('modal-ing'); logAuditEvent(localStorage.getItem('nk2_user')||'?', 'EDITAR_INGRESO', `Recibo ${params.factura}, Interior ${params.interior}`); await cargarTodo(); alert('Registro actualizado correctamente.'); }
     else alert('Error: ' + res.error);
   } catch(e) { alert('Error de conexión.'); }
 }
@@ -699,7 +705,7 @@ async function guardarEdicionSal() {
   };
   try {
     const res = await apiFetch('updateSalida', params);
-    if(res.ok){ cerrarModal('modal-sal'); await cargarTodo(); alert('Registro actualizado correctamente.'); }
+    if(res.ok){ cerrarModal('modal-sal'); logAuditEvent(localStorage.getItem('nk2_user')||'?', 'EDITAR_SALIDA', `N° ${params.cod_registro}`); await cargarTodo(); alert('Registro actualizado correctamente.'); }
     else alert('Error: ' + res.error);
   } catch(e) { alert('Error de conexión.'); }
 }
@@ -720,7 +726,7 @@ async function confirmarEliminar() {
   cerrarConfirm();
   try {
     const res = await apiFetch('deleteRow', { sheet: tipo === 'ing' ? 'BD_INGRESOS' : 'BD_SALIDAS', rowIndex });
-    if(res.ok){ await cargarTodo(); alert('Registro eliminado correctamente.'); }
+    if(res.ok){ logAuditEvent(localStorage.getItem('nk2_user')||'?', 'ELIMINAR', `Hoja: ${tipo==='ing'?'BD_INGRESOS':'BD_SALIDAS'}, Fila: ${rowIndex}`); await cargarTodo(); alert('Registro eliminado correctamente.'); }
     else alert('Error: ' + res.error);
   } catch(e) { alert('Error de conexión.'); }
 }

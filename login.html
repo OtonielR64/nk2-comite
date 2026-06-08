@@ -106,10 +106,15 @@
 
   <!-- PANEL COMITÉ -->
   <div class="panel active" id="panel-comite">
+    <label for="user-comite">Usuario</label>
+    <input type="text" id="user-comite" placeholder="Usuario" autofocus autocomplete="username"
+           onkeydown="if(event.key==='Enter') document.getElementById('pass').focus()"
+           oninput="clearComiteErr()">
     <label for="pass">Contraseña</label>
-    <input type="password" id="pass" placeholder="••••••••" autofocus
-           onkeydown="if(event.key==='Enter') ingresarComite()">
-    <div class="err-msg" id="err-comite">Contraseña incorrecta.</div>
+    <input type="password" id="pass" placeholder="••••••••" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') ingresarComite()"
+           oninput="clearComiteErr()">
+    <div class="err-msg" id="err-comite">Usuario o contraseña incorrectos.</div>
     <button class="btn-login btn-comite" onclick="ingresarComite()">Ingresar</button>
 
     <div class="roles-info">
@@ -138,10 +143,12 @@
 <p class="footer-note">Contacta al administrador si olvidaste tu PIN.</p>
 
 <script>
-// ── Contraseñas del comité ─────────────────────────────
-const ROLES = {
-  'NK2admin' : 'admin',
-  'NK2visor' : 'visor'
+// ── Usuarios del comité (usuario → { pass, role }) ────
+const COMITE_USERS = {
+  'OtonielR':  { pass: 'OtonielR123',  role: 'admin' },
+  'PatriciaN': { pass: 'PatriciaN123', role: 'admin' },
+  'EloisaG':   { pass: 'EloisaG123',  role: 'admin' },
+  'NK2visor':  { pass: 'NK2visor',     role: 'visor' }
 };
 // ──────────────────────────────────────────────────────
 
@@ -169,24 +176,37 @@ function switchTab(t) {
 
 // ── Login Comité ───────────────────────────────────────
 function ingresarComite() {
-  const input = document.getElementById('pass');
-  const errEl = document.getElementById('err-comite');
-  const rol   = ROLES[input.value];
+  const userEl = document.getElementById('user-comite');
+  const passEl = document.getElementById('pass');
+  const errEl  = document.getElementById('err-comite');
+  const usuario = userEl.value.trim();
+  const clave   = passEl.value;
+  const found   = COMITE_USERS[usuario];
 
-  if (rol) {
-    localStorage.setItem('nk2_role', rol);
-    location.replace(rol === 'visor' ? 'informe.html' : nextURL);
+  if (found && found.pass === clave) {
+    localStorage.setItem('nk2_role', found.role);
+    localStorage.setItem('nk2_user', usuario);
+    logAuditEvent(usuario, 'LOGIN', 'Ingreso al sistema');
+    location.replace(found.role === 'visor' ? 'informe.html' : nextURL);
   } else {
-    input.classList.add('err');
+    userEl.classList.add('err');
+    passEl.classList.add('err');
     errEl.classList.add('show');
-    input.value = '';
-    input.focus();
+    passEl.value = '';
+    passEl.focus();
   }
 }
-document.getElementById('pass').addEventListener('input', () => {
+
+function clearComiteErr() {
+  document.getElementById('user-comite').classList.remove('err');
   document.getElementById('pass').classList.remove('err');
   document.getElementById('err-comite').classList.remove('show');
-});
+}
+
+function logAuditEvent(usuario, accion, detalle) {
+  const params = new URLSearchParams({ action: 'logAudit', usuario, accion, detalle });
+  fetch(API_URL + '?' + params).catch(() => {});
+}
 
 // ── Login Residente ────────────────────────────────────
 async function ingresarResidente() {
