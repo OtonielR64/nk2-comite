@@ -173,7 +173,7 @@ const COMITE_DEFAULTS = {
   'OtonielR':  { pass: 'OtonielR123',  role: 'admin' },
   'PatriciaN': { pass: 'PatriciaN123', role: 'admin' },
   'EloisaG':   { pass: 'EloisaG123',  role: 'admin' },
-  'NK2visor':  { pass: 'NK2visor',     role: 'visor' }
+  'NK2visor':  { pass: 'NK2visor',     role: 'visor', skipChange: true }
 };
 // ──────────────────────────────────────────────────────
 
@@ -237,8 +237,8 @@ async function ingresarComite() {
 
   if (clave !== claveEfectiva) { mostrarErrComite(); return; }
 
-  // Clave temporal → forzar cambio
-  if (!clavePersonal) {
+  // Clave temporal → forzar cambio (excepto cuentas compartidas)
+  if (!clavePersonal && !defaults.skipChange) {
     pendingUser = usuario;
     pendingRole = defaults.role;
     mostrarPanelCambio();
