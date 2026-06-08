@@ -85,6 +85,13 @@
 
   .hint-res { font-size: 12px; color: #6b6b66; margin-bottom: 14px; line-height: 1.5; }
 
+  .aviso-cambio {
+    background: #fff8e8; border: 1px solid #f0c060; border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 16px; font-size: 12px;
+    color: #7a5500; line-height: 1.5;
+  }
+  .aviso-cambio strong { display: block; margin-bottom: 3px; font-size: 13px; }
+
   .footer-note { margin-top: 18px; font-size: 11px; color: #888;
                  font-family: 'IBM Plex Mono', monospace; text-align: center; }
 </style>
@@ -99,7 +106,7 @@
 <div class="card">
 
   <!-- TABS -->
-  <div class="tabs">
+  <div class="tabs" id="tabs-bar">
     <button class="tab-btn active" id="tab-comite"    onclick="switchTab('comite')">🏢 Comité</button>
     <button class="tab-btn"        id="tab-residente" onclick="switchTab('residente')">🏠 Residente</button>
   </div>
@@ -115,12 +122,30 @@
            onkeydown="if(event.key==='Enter') ingresarComite()"
            oninput="clearComiteErr()">
     <div class="err-msg" id="err-comite">Usuario o contraseña incorrectos.</div>
-    <button class="btn-login btn-comite" onclick="ingresarComite()">Ingresar</button>
+    <button id="btn-comite" class="btn-login btn-comite" onclick="ingresarComite()">Ingresar</button>
 
     <div class="roles-info">
       <div class="role-chip"><span class="role-dot dot-admin"></span>Admin — formularios + informes</div>
       <div class="role-chip"><span class="role-dot dot-visor"></span>Visor — solo informes y consultas</div>
     </div>
+  </div>
+
+  <!-- PANEL CAMBIO DE CLAVE (primer ingreso) -->
+  <div class="panel" id="panel-cambio">
+    <div class="aviso-cambio">
+      <strong>🔐 Primer ingreso detectado</strong>
+      Por seguridad debes crear una contraseña personal antes de continuar.
+    </div>
+    <label for="new-pass">Nueva contraseña</label>
+    <input type="password" id="new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
+           onkeydown="if(event.key==='Enter') document.getElementById('new-pass2').focus()"
+           oninput="document.getElementById('err-cambio').classList.remove('show')">
+    <label for="new-pass2">Confirmar contraseña</label>
+    <input type="password" id="new-pass2" placeholder="Repite la contraseña" autocomplete="new-password"
+           onkeydown="if(event.key==='Enter') guardarNuevaClave()"
+           oninput="document.getElementById('err-cambio').classList.remove('show')">
+    <div class="err-msg" id="err-cambio"></div>
+    <button id="btn-cambio" class="btn-login btn-comite" onclick="guardarNuevaClave()">Guardar y continuar</button>
   </div>
 
   <!-- PANEL RESIDENTE -->
@@ -143,8 +168,8 @@
 <p class="footer-note">Contacta al administrador si olvidaste tu PIN.</p>
 
 <script>
-// ── Usuarios del comité (usuario → { pass, role }) ────
-const COMITE_USERS = {
+// ── Claves temporales (solo para primer ingreso) ───────
+const COMITE_DEFAULTS = {
   'OtonielR':  { pass: 'OtonielR123',  role: 'admin' },
   'PatriciaN': { pass: 'PatriciaN123', role: 'admin' },
   'EloisaG':   { pass: 'EloisaG123',  role: 'admin' },
@@ -155,14 +180,23 @@ const COMITE_USERS = {
 const API_URL = localStorage.getItem('nk2_api_url') ||
   'https://script.google.com/macros/s/AKfycbzeTj0ueflFwujTWR_3nn0kdHNAtu60M7gORXRobGMFf1qGWxpMfd5a6sQ9VSghjeYl/exec';
 
-const params  = new URLSearchParams(location.search);
-const nextURL = params.get('next') || 'index.html';
+const urlParams = new URLSearchParams(location.search);
+const nextURL   = urlParams.get('next') || 'index.html';
 
 // Redirigir si ya hay sesión activa
 const rolActual = localStorage.getItem('nk2_role');
-if      (rolActual === 'admin')      location.replace(nextURL);
-else if (rolActual === 'visor')      location.replace('informe.html');
-else if (rolActual === 'residente')  location.replace('mi_cuenta.html');
+if      (rolActual === 'admin')     location.replace(nextURL);
+else if (rolActual === 'visor')     location.replace('informe.html');
+else if (rolActual === 'residente') location.replace('mi_cuenta.html');
+
+// ── Carga de claves personales desde API ───────────────
+let customPasswords = {};
+const initPromise = fetch(API_URL + '?' + new URLSearchParams({ action: 'getAdminPasswords' }))
+  .then(r => r.json())
+  .then(res => { if (res.ok && res.passwords) customPasswords = res.passwords; })
+  .catch(() => {});
+
+let pendingUser = null, pendingRole = null;
 
 // ── Tabs ───────────────────────────────────────────────
 function switchTab(t) {
@@ -170,31 +204,56 @@ function switchTab(t) {
     document.getElementById('tab-' + id).classList.toggle('active', id === t);
     document.getElementById('panel-' + id).classList.toggle('active', id === t);
   });
-  if (t === 'comite')    document.getElementById('pass').focus();
+  document.getElementById('panel-cambio').classList.remove('active');
+  document.getElementById('tabs-bar').style.display = '';
+  if (t === 'comite')    document.getElementById('user-comite').focus();
   if (t === 'residente') document.getElementById('res-interior').focus();
 }
 
 // ── Login Comité ───────────────────────────────────────
-function ingresarComite() {
-  const userEl = document.getElementById('user-comite');
-  const passEl = document.getElementById('pass');
-  const errEl  = document.getElementById('err-comite');
+async function ingresarComite() {
+  const userEl  = document.getElementById('user-comite');
+  const passEl  = document.getElementById('pass');
+  const btnEl   = document.getElementById('btn-comite');
+  const errEl   = document.getElementById('err-comite');
   const usuario = userEl.value.trim();
   const clave   = passEl.value;
-  const found   = COMITE_USERS[usuario];
 
-  if (found && found.pass === clave) {
-    localStorage.setItem('nk2_role', found.role);
-    localStorage.setItem('nk2_user', usuario);
-    logAuditEvent(usuario, 'LOGIN', 'Ingreso al sistema');
-    location.replace(found.role === 'visor' ? 'informe.html' : nextURL);
-  } else {
-    userEl.classList.add('err');
-    passEl.classList.add('err');
-    errEl.classList.add('show');
-    passEl.value = '';
-    passEl.focus();
+  const defaults = COMITE_DEFAULTS[usuario];
+  if (!defaults || !clave) { mostrarErrComite(); return; }
+
+  btnEl.textContent = 'Verificando...';
+  btnEl.classList.add('loading');
+  btnEl.disabled = true;
+
+  await initPromise; // espera a que carguen las claves personales
+
+  btnEl.textContent = 'Ingresar';
+  btnEl.classList.remove('loading');
+  btnEl.disabled = false;
+
+  const clavePersonal = customPasswords[usuario];
+  const claveEfectiva = clavePersonal || defaults.pass;
+
+  if (clave !== claveEfectiva) { mostrarErrComite(); return; }
+
+  // Clave temporal → forzar cambio
+  if (!clavePersonal) {
+    pendingUser = usuario;
+    pendingRole = defaults.role;
+    mostrarPanelCambio();
+    return;
   }
+
+  completarLogin(usuario, defaults.role);
+}
+
+function mostrarErrComite() {
+  document.getElementById('user-comite').classList.add('err');
+  document.getElementById('pass').classList.add('err');
+  document.getElementById('err-comite').classList.add('show');
+  document.getElementById('pass').value = '';
+  document.getElementById('pass').focus();
 }
 
 function clearComiteErr() {
@@ -203,9 +262,68 @@ function clearComiteErr() {
   document.getElementById('err-comite').classList.remove('show');
 }
 
+// ── Cambio de clave (primer ingreso) ──────────────────
+function mostrarPanelCambio() {
+  document.getElementById('tabs-bar').style.display = 'none';
+  ['panel-comite','panel-residente'].forEach(id =>
+    document.getElementById(id).classList.remove('active'));
+  document.getElementById('panel-cambio').classList.add('active');
+  document.getElementById('new-pass').focus();
+}
+
+async function guardarNuevaClave() {
+  const p1    = document.getElementById('new-pass').value;
+  const p2    = document.getElementById('new-pass2').value;
+  const errEl = document.getElementById('err-cambio');
+  const btnEl = document.getElementById('btn-cambio');
+
+  errEl.classList.remove('show');
+
+  if (p1.length < 6) {
+    errEl.textContent = 'Mínimo 6 caracteres.'; errEl.classList.add('show'); return;
+  }
+  if (p1 !== p2) {
+    errEl.textContent = 'Las contraseñas no coinciden.'; errEl.classList.add('show'); return;
+  }
+  if (p1 === COMITE_DEFAULTS[pendingUser].pass) {
+    errEl.textContent = 'Elige una clave diferente a la temporal.'; errEl.classList.add('show'); return;
+  }
+
+  btnEl.textContent = 'Guardando...';
+  btnEl.classList.add('loading');
+  btnEl.disabled = true;
+
+  try {
+    const qs  = new URLSearchParams({ action: 'saveAdminPassword', usuario: pendingUser, password: p1 });
+    const res = await fetch(API_URL + '?' + qs).then(r => r.json());
+    if (res.ok) {
+      logAuditEvent(pendingUser, 'CAMBIO_CLAVE', 'Contraseña personal establecida');
+      completarLogin(pendingUser, pendingRole);
+    } else {
+      errEl.textContent = 'Error al guardar: ' + (res.error || 'intenta de nuevo.');
+      errEl.classList.add('show');
+    }
+  } catch(e) {
+    errEl.textContent = '⚠ Error de conexión.';
+    errEl.classList.add('show');
+  }
+
+  btnEl.textContent = 'Guardar y continuar';
+  btnEl.classList.remove('loading');
+  btnEl.disabled = false;
+}
+
+// ── Completar login ────────────────────────────────────
+function completarLogin(usuario, rol) {
+  localStorage.setItem('nk2_role', rol);
+  localStorage.setItem('nk2_user', usuario);
+  logAuditEvent(usuario, 'LOGIN', 'Ingreso al sistema');
+  location.replace(rol === 'visor' ? 'informe.html' : nextURL);
+}
+
 function logAuditEvent(usuario, accion, detalle) {
-  const params = new URLSearchParams({ action: 'logAudit', usuario, accion, detalle });
-  fetch(API_URL + '?' + params).catch(() => {});
+  const p = new URLSearchParams({ action: 'logAudit', usuario, accion, detalle });
+  fetch(API_URL + '?' + p).catch(() => {});
 }
 
 // ── Login Residente ────────────────────────────────────
