@@ -186,6 +186,9 @@
       <span>Historial de pagos</span>
       <span id="lbl-recibos" style="font-size:12px;opacity:.75">—</span>
     </div>
+    <div id="aviso-corte" style="padding:9px 18px;font-size:12px;color:var(--muted);background:#fafaf8;border-bottom:1px solid var(--border);">
+      📅 Registros reportados hasta el <strong id="lbl-corte" style="color:var(--text)">—</strong>
+    </div>
     <div class="card-body" style="padding:0">
       <div class="tbl-wrap">
         <table>
@@ -291,6 +294,17 @@ function badgeConcepto(cod) {
 // ── Inicializar ────────────────────────────────────────
 document.getElementById('w-nombre').textContent   = NOMBRE   || 'Residente';
 document.getElementById('w-interior').textContent = 'Int. ' + (INTERIOR || '—');
+
+(function setAvisoCorte() {
+  const hoy = new Date();
+  let yr = hoy.getFullYear(), mo = hoy.getMonth() - 1;
+  if (mo < 0) { mo = 11; yr--; }
+  const ultimoDia = new Date(yr, mo + 1, 0).getDate();
+  const nombres = ['enero','febrero','marzo','abril','mayo','junio',
+                   'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('lbl-corte').textContent =
+    ultimoDia + ' de ' + nombres[mo] + ' de ' + yr;
+})();
 
 async function cargar() {
   try {
