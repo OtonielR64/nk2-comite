@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>if(localStorage.getItem('nk2_role')!=='admin')location.replace('login.html?next='+encodeURIComponent(location.href));</script>
 <title>Consultas NK2 — Comité Ornato y Seguridad</title>
+<script src="https://unpkg.com/qz-tray@2.2.4/qz-tray.js" async></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
   :root {
@@ -48,6 +49,7 @@
   .btn-sm { padding: 5px 10px; font-size: 12px; }
   .btn-edit { background: var(--amber); color: #fff; border-color: var(--amber); }
   .btn-del { background: var(--err); color: #fff; border-color: var(--err); }
+  .btn-print { background: #2980b9; color: #fff; border-color: #2980b9; }
 
   /* STATS */
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -380,6 +382,223 @@ function logAuditEvent(usuario, accion, detalle) {
   const p = new URLSearchParams({ action: 'logAudit', usuario, accion, detalle });
   fetch(API_URL + '?' + p).catch(() => {});
 }
+
+// ══════════ REIMPRESIÓN DE RECIBOS (térmica 58mm) ══════════
+function reimprimirRecibo(i) {
+  const r = datosIng[i];
+  const d = {
+    factura: r[0], fecha: r[1], interior: r[2], nombre: r[3],
+    cod_admin: r[4], administrador: r[5], cod_concepto: r[6], concepto: r[7],
+    vlr_admon: parseFloat(r[8]) || 0, vlr_vehiculo: parseFloat(r[9]) || 0,
+    mes_pago: r[10], cantidad: r[11] || 1,
+    total: parseFloat(r[12]) || ((parseFloat(r[8])||0) + (parseFloat(r[9])||0)),
+    observacion: r[13] || ''
+  };
+  logAuditEvent(localStorage.getItem('nk2_user')||'?', 'REIMPRIMIR_RECIBO', `Recibo ${d.factura}, Interior ${d.interior}`);
+  imprimirRecibo(d);
+}
+
+/* ESC/POS RAW — replica ModImprimirTermico.bas (ANCHO=32, CP1252) */
+function escposTicket(d) {
+  const ANCHO = 32;
+  const bytes = [];
+  const b  = (...v) => bytes.push(...v);
+  const txt = s => { for (let i = 0; i < s.length; i++) bytes.push(s.charCodeAt(i) & 0xFF); bytes.push(0x0A); };
+  const sep = () => txt('-'.repeat(ANCHO));
+  const izqDer = (izq, der) => {
+    izq = String(izq); der = String(der);
+    const sp = Math.max(1, ANCHO - izq.length - der.length);
+    return izq + ' '.repeat(sp) + der;
+  };
+  const cop = n => '$ ' + Math.round(n).toLocaleString('es-CO');
+
+  const [yr, mo, dy] = d.fecha.split('-');
+  const fechaStr = dy + '/' + mo + '/' + yr;
+  const cant = parseInt(d.cantidad) || 1;
+
+  b(0x1B, 0x40);
+  b(0x1B, 0x74, 0x10);
+
+  b(0x1B, 0x61, 0x01);
+  b(0x1B, 0x45, 0x01);
+  b(0x1B, 0x21, 0x10);
+  txt('COMITE ORNATO Y SEG.');
+  b(0x1B, 0x21, 0x00);
+  b(0x1B, 0x45, 0x00);
+  txt('Nuevo Kennedy II - Sector 2');
+  b(0x1B, 0x61, 0x00);
+
+  sep();
+  txt(izqDer('Recibo N:', String(d.factura)));
+  txt(izqDer('Fecha:', fechaStr));
+
+  sep();
+  txt(izqDer('Interior:', String(d.interior)));
+  txt('Residente:');
+  txt('  ' + String(d.nombre || '-').substring(0, ANCHO - 2));
+
+  sep();
+  txt('Concepto:');
+  const conc = String(d.concepto || '');
+  txt('  ' + conc.substring(0, ANCHO - 2));
+  if (conc.length > ANCHO - 2) txt('  ' + conc.substring(ANCHO - 2, (ANCHO - 2) * 2));
+  txt(izqDer('Mes de pago:', String(d.mes_pago)));
+  txt(izqDer('Cantidad:', cant + (cant === 1 ? ' mes' : ' meses')));
+
+  sep();
+  if (d.vlr_admon    > 0) txt(izqDer('Admon:', cop(d.vlr_admon)));
+  if (d.vlr_vehiculo > 0) txt(izqDer('Vehiculo(s):', cop(d.vlr_vehiculo)));
+
+  sep();
+  b(0x1B, 0x45, 0x01);
+  b(0x1B, 0x21, 0x10);
+  txt(izqDer('TOTAL PAGADO:', cop(d.total)));
+  b(0x1B, 0x21, 0x00);
+  b(0x1B, 0x45, 0x00);
+
+  sep();
+  if (d.observacion) {
+    const obs = String(d.observacion);
+    txt(('Obs: ' + obs).substring(0, ANCHO));
+    if (obs.length > ANCHO - 5) txt(('     ' + obs.substring(ANCHO - 5)).substring(0, ANCHO));
+  }
+  txt(izqDer('Recibido por:', String(d.administrador || '').substring(0, ANCHO - 14)));
+  sep();
+
+  b(0x1B, 0x61, 0x01);
+  txt('!Gracias por su pago puntual!');
+  txt('Conserve este recibo');
+  b(0x1B, 0x61, 0x00);
+
+  b(0x1B, 0x64, 0x05);
+  b(0x1D, 0x56, 0x00);
+
+  const ua = new Uint8Array(bytes);
+  let bin = '';
+  for (let i = 0; i < ua.length; i++) bin += String.fromCharCode(ua[i]);
+  return btoa(bin);
+}
+
+async function imprimirEscPos(d) {
+  if (!qz.websocket.isActive()) {
+    await qz.websocket.connect({ retries: 2, delay: 0.5 });
+  }
+  let printer = null;
+  try {
+    const found = await qz.printers.find('Generic');
+    printer = Array.isArray(found) ? found[0] : found;
+  } catch (_) {}
+  if (!printer) {
+    const all = await qz.printers.find();
+    const list = Array.isArray(all) ? all : [all];
+    printer = list.find(p => /generic|text only|pos|58mm|thermal|receipt/i.test(p)) || list[0];
+  }
+  if (!printer) throw new Error('No se encontró ninguna impresora instalada');
+  const cfg = qz.configs.create(printer);
+  await qz.print(cfg, [{ type: 'raw', format: 'base64', data: escposTicket(d) }]);
+}
+
+async function imprimirRecibo(d) {
+  if (typeof qz !== 'undefined') {
+    try {
+      await imprimirEscPos(d);
+      return;
+    } catch (err) {
+      const msg = (err.message || String(err)).toLowerCase();
+      if (/connect|socket|refused|timed|unavailable/i.test(msg)) {
+        const usar = confirm(
+          '⚠ QZ Tray no está activo en este equipo.\n\n' +
+          'Para imprimir igual que en Excel necesitas:\n' +
+          '  1. Descargar e instalar QZ Tray desde  qz.io\n' +
+          '  2. Ejecutarlo en segundo plano (icono en la barra)\n' +
+          '  3. En Chrome, abrir  https://localhost:8181/\n' +
+          '     y aceptar el certificado una sola vez.\n\n' +
+          '¿Imprimir de todas formas con vista previa HTML?'
+        );
+        if (!usar) return;
+      } else {
+        console.warn('QZ Tray error:', err.message || err);
+      }
+    }
+  }
+  imprimirReciboHTML(d);
+}
+
+function imprimirReciboHTML(d) {
+  const cop  = n => '$ ' + Math.round(n).toLocaleString('es-CO');
+  const sep  = `<tr><td colspan="2"><div class="sep"></div></td></tr>`;
+  const fila = (lbl, val) => `<tr><td class="lbl">${lbl}</td><td class="val">${val}</td></tr>`;
+
+  const [yr2, mm, dd] = d.fecha.split('-');
+  const fechaStr = `${dd}/${mm}/${yr2}`;
+  const meses = parseInt(d.cantidad) || 1;
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Recibo ${d.factura}</title>
+<style>
+  @page { size: 58mm auto; margin: 2mm 3mm; }
+  html, body { width: 52mm; max-width: 52mm; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Courier New',Courier,monospace; font-size:8pt; color:#000;
+         background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact;
+         line-height:1.35; }
+  table { width:100%; border-collapse:collapse; table-layout:fixed; }
+  .lbl { width:56%; font-size:7.5pt; color:#444; padding:0.6mm 0; vertical-align:top; word-break:break-word; }
+  .val { width:44%; text-align:right; padding:0.6mm 0; vertical-align:top; font-weight:600; word-break:break-word; }
+  .sep { border-top:1px dashed #666; margin:1.8mm 0; }
+  .c   { text-align:center; display:block; }
+  .big-lbl { width:56%; font-size:9.5pt; font-weight:bold; padding:1mm 0; vertical-align:middle; }
+  .big-val { width:44%; font-size:9.5pt; font-weight:bold; text-align:right; padding:1mm 0; vertical-align:middle; }
+  .tail { height:10mm; }
+</style>
+</head>
+<body>
+<span class="c" style="font-size:9pt;font-weight:bold">COMITÉ ORNATO Y SEG.</span>
+<span class="c" style="font-size:7.5pt;color:#444">Nuevo Kennedy II — Sector 2</span>
+<table><tbody>
+  ${sep}
+  ${fila('Recibo N°:','<strong>'+d.factura+'</strong>')}
+  ${fila('Fecha:',fechaStr)}
+  ${sep}
+  ${fila('Interior:','<strong>'+d.interior+'</strong>')}
+</tbody></table>
+<span style="font-size:7.5pt;color:#444;display:block">Residente:</span>
+<span style="font-weight:bold;font-size:8pt;display:block;margin-left:2mm;margin-bottom:1mm">${d.nombre||'—'}</span>
+<table><tbody>
+  ${sep}
+  <tr><td colspan="2" style="font-size:7.5pt;color:#444;padding-bottom:0.5mm">Concepto:</td></tr>
+  <tr><td colspan="2" style="font-size:7.5pt;padding-left:2mm;padding-bottom:0.8mm">${d.concepto}</td></tr>
+  ${fila('Mes de pago:',d.mes_pago)}
+  ${fila('Cantidad:',meses+(meses===1?' mes':' meses'))}
+  ${sep}
+  ${d.vlr_admon    > 0 ? fila('Admón:',cop(d.vlr_admon))         : ''}
+  ${d.vlr_vehiculo > 0 ? fila('Vehículo(s):',cop(d.vlr_vehiculo)): ''}
+  ${sep}
+  <tr><td class="big-lbl">TOTAL PAGADO:</td><td class="big-val">${cop(d.total)}</td></tr>
+  ${sep}
+  ${d.observacion ? `<tr><td colspan="2" style="font-size:7.5pt;padding-bottom:0.5mm"><span style="color:#444">Obs: </span>${d.observacion}</td></tr>` : ''}
+  ${fila('<span style="color:#444">Recibido por:</span>',d.administrador)}
+  ${sep}
+</tbody></table>
+<span class="c" style="font-size:7pt;margin-top:1.5mm;display:block">¡Gracias por su pago puntual!</span>
+<span class="c" style="font-size:7pt;display:block">Conserve este recibo</span>
+<div class="tail"></div>
+</body></html>`;
+
+  const w = window.open('','_blank',
+    'width=260,height=560,toolbar=0,menubar=0,location=0,status=0,scrollbars=1,resizable=1');
+  if (!w) {
+    alert('⚠ Permite las ventanas emergentes en este sitio para imprimir el recibo.');
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 500);
+}
 let datosIng = [], datosSal = [];
 let filtradoIng = [], filtradoSal = [];
 let pageIng = 0, pageSal = 0;
@@ -490,7 +709,8 @@ function renderPaginaIng() {
       <td><strong>${fmt(r[12])}</strong></td>
       <td style="max-width:150px;white-space:normal;font-size:11px">${r[13]||''}</td>
       <td>
-        <button class="btn btn-sm btn-edit" onclick="abrirEditIng(${gi})">Editar</button>
+        <button class="btn btn-sm btn-print" onclick="reimprimirRecibo(${gi})">🖨 Imprimir</button>
+        <button class="btn btn-sm btn-edit" style="margin-left:4px" onclick="abrirEditIng(${gi})">Editar</button>
         <button class="btn btn-sm btn-del" style="margin-left:4px" onclick="abrirConfirm('ing',${gi})">Eliminar</button>
       </td>
     </tr>`;
