@@ -604,7 +604,8 @@ function setBtnLoading(id, state) {
 </script>
 <script>
 (function(){
-  const T = 3 * 60 * 1000;
+  const ADMINS_EXT = ['OtonielR','PatriciaN','EloisaG'];
+  const T = ADMINS_EXT.includes(localStorage.getItem('nk2_user')) ? 6 * 60 * 1000 : 3 * 60 * 1000;
   let t;
   function reset() {
     clearTimeout(t);
@@ -612,6 +613,7 @@ function setBtnLoading(id, state) {
       localStorage.removeItem('nk2_role');
       localStorage.removeItem('nk2_interior');
       localStorage.removeItem('nk2_nombre');
+      localStorage.removeItem('nk2_user');
       location.replace('login.html');
     }, T);
   }
