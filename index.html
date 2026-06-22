@@ -287,6 +287,19 @@
   }
   .success-banner.show { display: block; }
 
+  .lock-banner {
+    display: none;
+    background: #fdf3e3;
+    border: 1px solid #e8c878;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #854f0b;
+    font-weight: 500;
+  }
+  .lock-banner.show { display: block; }
+
   /* API CONFIG */
   .api-config {
     background: #fffbea;
@@ -362,6 +375,7 @@
 
         <div id="toast-ing" class="toast"></div>
         <div id="success-ing" class="success-banner"></div>
+        <div id="lock-banner-ing" class="lock-banner"></div>
 
         <div class="row row-2">
           <div class="field">
@@ -504,6 +518,7 @@
 
         <div id="toast-sal" class="toast"></div>
         <div id="success-sal" class="success-banner"></div>
+        <div id="lock-banner-sal" class="lock-banner"></div>
 
         <div class="row row-2">
           <div class="field">
@@ -1021,7 +1036,62 @@ function switchTab(t) {
   document.getElementById('panel-sal').classList.toggle('active', t==='sal');
   document.getElementById('tab-ing').className = 'tab-btn'+(t==='ing'?' active-ing':'');
   document.getElementById('tab-sal').className = 'tab-btn'+(t==='sal'?' active-sal':'');
+  iniciarLock(t === 'ing' ? 'ingresos' : 'salidas');
 }
+
+// ══════════ BLOQUEO DE FORMULARIOS (evitar conflictos entre usuarios) ══════════
+const LOCK_HEARTBEAT_MS = 8000;
+let lockTimer = null;
+let currentFormLock = null;
+
+function miUsuario() { return localStorage.getItem('nk2_user') || 'desconocido'; }
+
+async function intentarLock(formulario) {
+  try {
+    const res = await fetch(API_URL + '?' + new URLSearchParams({
+      action: 'setLock', formulario, usuario: miUsuario()
+    })).then(r => r.json());
+    aplicarEstadoLock(formulario, res);
+  } catch(e) {}
+}
+
+function aplicarEstadoLock(formulario, res) {
+  const sufijo = formulario === 'ingresos' ? 'ing' : 'sal';
+  const banner = document.getElementById('lock-banner-' + sufijo);
+  const btn    = document.getElementById('btn-guardar-' + sufijo);
+  if (res && res.ok && res.taken === false && res.lock) {
+    banner.textContent = `🔒 ${res.lock.usuario} está usando este formulario ahora mismo. Espera un momento para evitar conflictos.`;
+    banner.classList.add('show');
+    btn.disabled = true;
+  } else {
+    banner.classList.remove('show');
+    btn.disabled = false;
+  }
+}
+
+async function liberarLock(formulario) {
+  try {
+    await fetch(API_URL + '?' + new URLSearchParams({
+      action: 'releaseLock', formulario, usuario: miUsuario()
+    }));
+  } catch(e) {}
+}
+
+function detenerLockActual() {
+  if (currentFormLock) liberarLock(currentFormLock);
+  clearInterval(lockTimer);
+  currentFormLock = null;
+}
+
+function iniciarLock(formulario) {
+  detenerLockActual();
+  currentFormLock = formulario;
+  intentarLock(formulario);
+  lockTimer = setInterval(() => intentarLock(formulario), LOCK_HEARTBEAT_MS);
+}
+
+window.addEventListener('beforeunload', detenerLockActual);
+iniciarLock('ingresos');
 
 // ═══════════════════════════════════════
 // UTILIDADES
