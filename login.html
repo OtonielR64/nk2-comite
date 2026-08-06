@@ -226,7 +226,7 @@ async function ingresarComite() {
   btnEl.classList.add('loading');
   btnEl.disabled = true;
 
-  await initPromise; // espera a que carguen las claves personales
+  await Promise.race([initPromise, new Promise(r => setTimeout(r, 1500))]); // máx 1.5s
 
   btnEl.textContent = 'Ingresar';
   btnEl.classList.remove('loading');
