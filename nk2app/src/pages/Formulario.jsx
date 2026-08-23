@@ -41,8 +41,8 @@ const CONCEPTOS_SAL = [
 function generarMeses() {
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
   const opciones = []
-  for (let y = 2024; y <= 2027; y++) {
-    meses.forEach(m => opciones.push(`${m}-${y}`))
+  for (let y = 2027; y >= 2024; y--) {
+    for (let i = 11; i >= 0; i--) opciones.push(`${meses[i]}-${y}`)
   }
   return opciones
 }
@@ -209,7 +209,12 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       <Row gutter={16}>
         <Col xs={24} sm={12}>
           <Form.Item label="Mes de pago" name="mes_pago" rules={[{ required: true, message: 'Requerido' }]}>
-            <Select options={MESES.map(m => ({ value: m, label: m }))} />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="-- seleccionar --"
+              options={MESES.map(m => ({ value: m, label: m }))}
+            />
           </Form.Item>
         </Col>
         <Col xs={24} sm={12}>
