@@ -943,10 +943,21 @@ async function confirmarEliminar() {
   if (!pendingDelete) return;
   const { tipo, i } = pendingDelete;
   const rowIndex = i + 2;
+
+  // Capturar datos del registro ANTES de eliminar
+  let detalle;
+  if (tipo === 'ing') {
+    const r = datosIng[i];
+    detalle = `Recibo ${r[0]} | Fecha ${r[1]} | Int ${r[2]} – ${r[3]} | ${r[7]} | Mes: ${fmtMes(r[10])} | Total: ${fmt(r[12])}`;
+  } else {
+    const r = datosSal[i];
+    detalle = `Reg ${r[0]} | Fecha ${r[1]} | ${r[5]} | Total: ${fmt(r[6])}`;
+  }
+
   cerrarConfirm();
   try {
     const res = await apiFetch('deleteRow', { sheet: tipo === 'ing' ? 'BD_INGRESOS' : 'BD_SALIDAS', rowIndex });
-    if(res.ok){ logAuditEvent(localStorage.getItem('nk2_user')||'?', 'ELIMINAR', `Hoja: ${tipo==='ing'?'BD_INGRESOS':'BD_SALIDAS'}, Fila: ${rowIndex}`); await cargarTodo(); alert('Registro eliminado correctamente.'); }
+    if(res.ok){ logAuditEvent(localStorage.getItem('nk2_user')||'?', 'ELIMINAR', detalle); await cargarTodo(); alert('Registro eliminado correctamente.'); }
     else alert('Error: ' + res.error);
   } catch(e) { alert('Error de conexión.'); }
 }
