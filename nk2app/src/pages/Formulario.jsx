@@ -70,19 +70,21 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
   const [campos, setCampos] = useState({ admon: true, vehiculo: true })
   const [totalPagar, setTotalPagar] = useState(0)
 
-  function calcTotal() {
-    const a = form.getFieldValue('vlr_admon') || 0
-    const v = form.getFieldValue('vlr_vehiculo') || 0
-    const c = form.getFieldValue('cantidad') || 1
+  function calcTotal(_, allValues) {
+    const a = allValues?.vlr_admon || 0
+    const v = allValues?.vlr_vehiculo || 0
+    const c = allValues?.cantidad || 1
     setTotalPagar((a + v) * c)
   }
 
   function onConceptoChange(val) {
     const est = estadoCampos(val)
     setCampos(est)
-    if (!est.admon) form.setFieldValue('vlr_admon', 0)
+    const admon    = est.admon    ? (form.getFieldValue('vlr_admon')    || 0) : 0
+    const vehiculo = est.vehiculo ? (form.getFieldValue('vlr_vehiculo') || 0) : 0
+    if (!est.admon)    form.setFieldValue('vlr_admon', 0)
     if (!est.vehiculo) form.setFieldValue('vlr_vehiculo', 0)
-    calcTotal()
+    setTotalPagar((admon + vehiculo) * (form.getFieldValue('cantidad') || 1))
   }
 
   function onInteriorChange(val) {
@@ -113,7 +115,7 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
     try {
       const res = await api.saveIngreso(datos)
       message.success(res.mensaje)
-      onGuardado()
+      await onGuardado()
       limpiar()
     } catch (e) {
       message.error(e.message || 'Error de conexión con la API.')
