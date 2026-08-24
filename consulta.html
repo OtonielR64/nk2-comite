@@ -617,7 +617,7 @@ function conectarAPI() {
 }
 
 function apiFetch(action, params = {}) {
-  const qs = new URLSearchParams({ action, ...params });
+  const qs = new URLSearchParams({ action, token: localStorage.getItem('nk2_api_token') || '', ...params });
   return fetch(API_URL + '?' + qs).then(r => r.json());
 }
 

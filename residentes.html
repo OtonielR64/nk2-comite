@@ -315,7 +315,7 @@ const API_URL = localStorage.getItem('nk2_api_url') ||
   'https://script.google.com/macros/s/AKfycbzeTj0ueflFwujTWR_3nn0kdHNAtu60M7gORXRobGMFf1qGWxpMfd5a6sQ9VSghjeYl/exec';
 
 function apiFetch(action, params = {}) {
-  const qs = new URLSearchParams({ action, ...params });
+  const qs = new URLSearchParams({ action, token: localStorage.getItem('nk2_api_token') || '', ...params });
   return fetch(API_URL + '?' + qs).then(r => r.json());
 }
 

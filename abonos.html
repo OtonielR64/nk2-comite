@@ -293,7 +293,7 @@ const fmtFecha = f => { if(!f) return ''; const d=new Date(f+'T12:00:00'); retur
 let registroActual = null;
 
 function apiFetch(action, params={}) {
-  return fetch(API_URL+'?'+new URLSearchParams({action,...params})).then(r=>r.json());
+  return fetch(API_URL+'?'+new URLSearchParams({action, token: localStorage.getItem('nk2_api_token')||'', ...params})).then(r=>r.json());
 }
 
 // Cargar personal

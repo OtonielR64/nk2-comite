@@ -189,12 +189,7 @@ if      (rolActual === 'admin')     location.replace(nextURL);
 else if (rolActual === 'visor')     location.replace('informe.html');
 else if (rolActual === 'residente') location.replace('mi_cuenta.html');
 
-// ── Carga de claves personales desde API ───────────────
-let customPasswords = {};
-const initPromise = fetch(API_URL + '?' + new URLSearchParams({ action: 'getAdminPasswords' }))
-  .then(r => r.json())
-  .then(res => { if (res.ok && res.passwords) customPasswords = res.passwords; })
-  .catch(() => {});
+// (la validación de credenciales ocurre en el servidor vía getToken)
 
 let pendingUser = null, pendingRole = null;
 
@@ -215,37 +210,41 @@ async function ingresarComite() {
   const userEl  = document.getElementById('user-comite');
   const passEl  = document.getElementById('pass');
   const btnEl   = document.getElementById('btn-comite');
-  const errEl   = document.getElementById('err-comite');
   const usuario = userEl.value.trim();
   const clave   = passEl.value;
 
-  const defaults = COMITE_DEFAULTS[usuario];
-  if (!defaults || !clave) { mostrarErrComite(); return; }
+  if (!COMITE_DEFAULTS[usuario] || !clave) { mostrarErrComite(); return; }
 
   btnEl.textContent = 'Verificando...';
   btnEl.classList.add('loading');
   btnEl.disabled = true;
 
-  await Promise.race([initPromise, new Promise(r => setTimeout(r, 1500))]); // máx 1.5s
+  try {
+    const qs  = new URLSearchParams({ action: 'getToken', usuario, password: clave });
+    const res = await Promise.race([
+      fetch(API_URL + '?' + qs).then(r => r.json()),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+    ]);
 
-  btnEl.textContent = 'Ingresar';
-  btnEl.classList.remove('loading');
-  btnEl.disabled = false;
+    if (!res.ok) { mostrarErrComite(); return; }
 
-  const clavePersonal = customPasswords[usuario];
-  const claveEfectiva = clavePersonal || defaults.pass;
+    localStorage.setItem('nk2_api_token', res.token);
 
-  if (clave !== claveEfectiva) { mostrarErrComite(); return; }
+    if (res.needsChange) {
+      pendingUser = usuario;
+      pendingRole = res.role;
+      mostrarPanelCambio();
+      return;
+    }
 
-  // Clave temporal → forzar cambio (excepto cuentas compartidas)
-  if (!clavePersonal && !defaults.skipChange) {
-    pendingUser = usuario;
-    pendingRole = defaults.role;
-    mostrarPanelCambio();
-    return;
+    completarLogin(usuario, res.role);
+  } catch(e) {
+    mostrarErrComite();
+  } finally {
+    btnEl.textContent = 'Ingresar';
+    btnEl.classList.remove('loading');
+    btnEl.disabled = false;
   }
-
-  completarLogin(usuario, defaults.role);
 }
 
 function mostrarErrComite() {
@@ -294,7 +293,7 @@ async function guardarNuevaClave() {
   btnEl.disabled = true;
 
   try {
-    const qs  = new URLSearchParams({ action: 'saveAdminPassword', usuario: pendingUser, password: p1 });
+    const qs  = new URLSearchParams({ action: 'saveAdminPassword', usuario: pendingUser, password: p1, token: localStorage.getItem('nk2_api_token') || '' });
     const res = await fetch(API_URL + '?' + qs).then(r => r.json());
     if (res.ok) {
       logAuditEvent(pendingUser, 'CAMBIO_CLAVE', 'Contraseña personal establecida');
@@ -348,9 +347,10 @@ async function ingresarResidente() {
     const res = await fetch(API_URL + '?' + qs).then(r => r.json());
 
     if (res.ok) {
-      localStorage.setItem('nk2_role',     'residente');
-      localStorage.setItem('nk2_interior', res.interior);
-      localStorage.setItem('nk2_nombre',   res.nombre);
+      localStorage.setItem('nk2_role',      'residente');
+      localStorage.setItem('nk2_interior',  res.interior);
+      localStorage.setItem('nk2_nombre',    res.nombre);
+      localStorage.setItem('nk2_api_token', res.token || '');
       location.replace('mi_cuenta.html');
     } else {
       errEl.textContent = res.error || 'Interior o PIN incorrecto.';

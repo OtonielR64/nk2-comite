@@ -475,7 +475,7 @@ document.getElementById('fecha-ini').value = primerDia;
 document.getElementById('fecha-fin').value = ultimoDiaStr;
 
 function apiFetch(action, params={}) {
-  return fetch(API_URL+'?'+new URLSearchParams({action,...params})).then(r=>r.json());
+  return fetch(API_URL+'?'+new URLSearchParams({action, token: localStorage.getItem('nk2_api_token')||'', ...params})).then(r=>r.json());
 }
 
 const fmt = n => '$ ' + Math.round(parseFloat(n)||0).toLocaleString('es-CO');

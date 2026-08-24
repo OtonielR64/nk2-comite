@@ -222,7 +222,7 @@ let resultados = [];
 let sortCol = 3, sortAsc = true;
 
 function apiFetch(action, params={}) {
-  return fetch(API_URL+'?'+new URLSearchParams({action,...params})).then(r=>r.json());
+  return fetch(API_URL+'?'+new URLSearchParams({action, token: localStorage.getItem('nk2_api_token')||'', ...params})).then(r=>r.json());
 }
 
 async function cargarDatos() {

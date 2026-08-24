@@ -308,7 +308,7 @@ document.getElementById('w-interior').textContent = 'Int. ' + (INTERIOR || '—'
 
 async function cargar() {
   try {
-    const qs  = new URLSearchParams({ action: 'getResidenteData', interior: INTERIOR });
+    const qs  = new URLSearchParams({ action: 'getResidenteData', interior: INTERIOR, token: localStorage.getItem('nk2_api_token') || '' });
     const res = await fetch(API_URL + '?' + qs).then(r => r.json());
 
     if (!res.ok) {

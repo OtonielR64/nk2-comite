@@ -257,7 +257,7 @@ const fmtMes = m => {
   return m;
 };
 const apiFetch = action =>
-  fetch(API_URL + '?' + new URLSearchParams({action})).then(r => r.json());
+  fetch(API_URL + '?' + new URLSearchParams({action, token: localStorage.getItem('nk2_api_token')||''})).then(r => r.json());
 
 // Devuelve {admon, veh} para un registro de ingreso.
 // Si ambos son 0, los deriva usando el código de concepto + total.
