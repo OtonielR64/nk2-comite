@@ -284,11 +284,15 @@
   <div class="modal">
     <h2>Editar Ingreso</h2>
     <input type="hidden" id="edit-i-row">
+    <input type="hidden" id="edit-i-cod-admin">
     <div class="row row-4">
       <div class="field"><label>Fecha</label><input type="date" id="edit-i-fecha"></div>
       <div class="field"><label>N° Recibo</label><input type="number" id="edit-i-recibo"></div>
       <div class="field"><label>Interior</label><input type="text" id="edit-i-interior"></div>
       <div class="field"><label>Nombre</label><input type="text" id="edit-i-nombre"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Administrador *</label><input type="text" id="edit-i-administrador" placeholder="Nombre del administrador"></div>
     </div>
     <div class="row">
       <div class="field">
@@ -853,6 +857,8 @@ function abrirEditIng(i) {
   document.getElementById('edit-i-recibo').value = r[0];
   document.getElementById('edit-i-interior').value = r[2];
   document.getElementById('edit-i-nombre').value = r[3];
+  document.getElementById('edit-i-cod-admin').value = r[4]||'';
+  document.getElementById('edit-i-administrador').value = r[5]||'';
   document.getElementById('edit-i-concepto').value = r[6];
   document.getElementById('edit-i-admon').value = r[8]||0;
   document.getElementById('edit-i-vehiculo').value = r[9]||0;
@@ -870,6 +876,8 @@ function editCalcTotal() {
 
 async function guardarEdicionIng() {
   const i = parseInt(document.getElementById('edit-i-row').value);
+  const administrador = document.getElementById('edit-i-administrador').value.trim();
+  if (!administrador) { alert('El campo Administrador es obligatorio.'); document.getElementById('edit-i-administrador').focus(); return; }
   const selConc = document.getElementById('edit-i-concepto');
   const a = parseFloat(document.getElementById('edit-i-admon').value)||0;
   const v = parseFloat(document.getElementById('edit-i-vehiculo').value)||0;
@@ -880,6 +888,8 @@ async function guardarEdicionIng() {
     fecha: document.getElementById('edit-i-fecha').value,
     interior: document.getElementById('edit-i-interior').value,
     nombre: document.getElementById('edit-i-nombre').value,
+    cod_admin: document.getElementById('edit-i-cod-admin').value,
+    administrador,
     cod_concepto: selConc.value,
     concepto: selConc.options[selConc.selectedIndex].text.split(' — ')[1]||'',
     vlr_admon: a, vlr_vehiculo: v, cantidad: c,
