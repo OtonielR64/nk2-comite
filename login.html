@@ -223,7 +223,7 @@ async function ingresarComite() {
     const qs  = new URLSearchParams({ action: 'getToken', usuario, password: clave });
     const res = await Promise.race([
       fetch(API_URL + '?' + qs).then(r => r.json()),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000))
     ]);
 
     if (!res.ok) { mostrarErrComite(); return; }
@@ -239,7 +239,9 @@ async function ingresarComite() {
 
     completarLogin(usuario, res.role);
   } catch(e) {
-    mostrarErrComite();
+    const errEl = document.getElementById('err-comite');
+    errEl.textContent = 'Servicio lento — intenta de nuevo en unos segundos.';
+    errEl.classList.add('show');
   } finally {
     btnEl.textContent = 'Ingresar';
     btnEl.classList.remove('loading');
