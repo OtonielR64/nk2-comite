@@ -304,6 +304,9 @@ function route_get_ingresos(): never {
 function route_save_ingreso(): never {
     admin_required();
     $b = body();
+    $chk = db()->prepare('SELECT id FROM bd_ingresos WHERE factura = ?');
+    $chk->execute([(int)$b['factura']]);
+    if ($chk->fetch()) json_error('El número de recibo ' . (int)$b['factura'] . ' ya existe. Verifica o ajusta el N° Recibo.');
     db()->prepare(
         'INSERT INTO bd_ingresos (factura,fecha,interior,nombre,cod_admin,administrador,
          cod_concepto,concepto,vlr_admon,vlr_vehiculo,mes_pago,cantidad,total,observacion)
