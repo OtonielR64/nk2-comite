@@ -16,10 +16,11 @@ const { RangePicker } = DatePicker
 
 const fmt = n => '$ ' + Math.round(parseFloat(n) || 0).toLocaleString('es-CO')
 const fmtMes = m => {
-  if (!m) return ''
+  if (!m || String(m).startsWith('undefined')) return ''
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
   const match = String(m).match(/^(\d{4})-(\d{2})/)
   if (match) return `${meses[parseInt(match[2]) - 1]}-${match[1]}`
+  return String(m)
   return m
 }
 const fmtFecha = f => {
@@ -104,7 +105,7 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
       concepto:    String(r.cod_concepto),
       vlr_admon:   parseFloat(r.vlr_admon) || 0,
       vlr_vehiculo: parseFloat(r.vlr_vehiculo) || 0,
-      mes_pago:    fmtMes(r.mes_pago),
+      mes_pago:    r.mes_pago || '',
       cantidad:    parseInt(r.cantidad) || 1,
       observacion: r.observacion || '',
     })

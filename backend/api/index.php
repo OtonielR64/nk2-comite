@@ -1,4 +1,5 @@
 <?php
+// v2026-08-27: duplicado check activo
 require_once __DIR__ . '/config.php';
 
 // ── CORS ──────────────────────────────────────────────────────────────────
