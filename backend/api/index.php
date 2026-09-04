@@ -63,7 +63,7 @@ function auth_required(): array {
 
 function admin_required(): array {
     $p = auth_required();
-    if ($p['rol'] !== 'admin') json_error('Acceso denegado', 403);
+    if (!in_array($p['rol'], ['admin', 'superadmin'], true)) json_error('Acceso denegado', 403);
     return $p;
 }
 
@@ -307,7 +307,7 @@ function route_save_ingreso() {
     $b = body();
     $chk = db()->prepare('SELECT id FROM bd_ingresos WHERE factura = ?');
     $chk->execute([(int)$b['factura']]);
-    if ($chk->fetch()) json_error('El nÃºmero de recibo ' . (int)$b['factura'] . ' ya existe. Verifica o ajusta el NÂ° Recibo.');
+    if ($chk->fetch()) json_error('DUPLICADO: El recibo ' . (int)$b['factura'] . ' ya existe en BD. Ajusta el N° Recibo. [v3]');
     db()->prepare(
         'INSERT INTO bd_ingresos (factura,fecha,interior,nombre,cod_admin,administrador,
          cod_concepto,concepto,vlr_admon,vlr_vehiculo,mes_pago,cantidad,total,observacion)

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   Form, Input, InputNumber, Select, DatePicker, Button,
   Card, Tabs, Row, Col, Typography, Divider,
-  message, Spin
+  message, Spin, Modal
 } from 'antd'
 import { SaveOutlined, ClearOutlined, CloseOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -12,6 +12,43 @@ const { Text } = Typography
 const { TextArea } = Input
 
 const fmt = n => '$ ' + Math.round(n || 0).toLocaleString('es-CO')
+
+function imprimirRecibo(d) {
+  const f = n => '$ ' + Math.round(n || 0).toLocaleString('es-CO')
+  const win = window.open('', '_blank', 'width=420,height=650')
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8"><title>Recibo NK2 N°${d.factura}</title>
+    <style>
+      body{font-family:monospace;font-size:12px;margin:0;padding:12px;width:300px}
+      .c{text-align:center}.b{font-weight:bold}
+      hr{border:none;border-top:1px dashed #000;margin:6px 0}
+      .row{display:flex;justify-content:space-between;margin:3px 0}
+      @media print{body{margin:0}}
+    </style>
+  </head><body>
+    <div class="c b" style="font-size:14px">COMITÉ ORNATO Y SEGURIDAD</div>
+    <div class="c">Nuevo Kennedy II Sector</div>
+    <div class="c b" style="margin-top:4px">RECIBO DE CAJA N° ${d.factura}</div>
+    <hr/>
+    <div class="row"><span>Fecha:</span><span>${d.fecha}</span></div>
+    <div class="row"><span>Interior:</span><span>${d.interior} — ${d.nombre}</span></div>
+    <div class="row"><span>Administrador:</span><span>${d.administrador}</span></div>
+    <hr/>
+    <div class="row"><span>Concepto:</span><span>${d.concepto}</span></div>
+    <div class="row"><span>Mes de pago:</span><span>${d.mes_pago}</span></div>
+    <div class="row"><span>Cantidad meses:</span><span>${d.cantidad}</span></div>
+    ${d.vlr_admon > 0 ? `<div class="row"><span>Vlr Admón:</span><span>${f(d.vlr_admon)}</span></div>` : ''}
+    ${d.vlr_vehiculo > 0 ? `<div class="row"><span>Vlr Vehículo:</span><span>${f(d.vlr_vehiculo)}</span></div>` : ''}
+    <hr/>
+    <div class="row b"><span>TOTAL PAGADO:</span><span>${f(d.total)}</span></div>
+    <hr/>
+    ${d.observacion ? `<div>Observación: ${d.observacion}</div><hr/>` : ''}
+    <div class="c" style="margin-top:8px;font-size:11px">¡Gracias por su pago!</div>
+  </body></html>`)
+  win.document.close()
+  win.focus()
+  setTimeout(() => { win.print(); win.close() }, 300)
+}
 
 const CONCEPTOS_ING = [
   { value: '11', label: '11 — Conserjería (casa)' },
@@ -117,6 +154,13 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       message.success(res.mensaje)
       await onGuardado()
       limpiar()
+      Modal.confirm({
+        title: '¿Desea imprimir el recibo?',
+        content: `Recibo N° ${datos.factura} — ${datos.nombre}`,
+        okText: 'Imprimir',
+        cancelText: 'No',
+        onOk: () => imprimirRecibo(datos),
+      })
     } catch (e) {
       message.error(e.message || 'Error de conexión con la API.')
     }

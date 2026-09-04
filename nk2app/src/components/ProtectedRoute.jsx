@@ -9,7 +9,7 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     return <Navigate to="/login" state={{ next: location.pathname }} replace />
   }
 
-  if (adminOnly && role !== 'admin') {
+  if (adminOnly && role !== 'admin' && role !== 'superadmin') {
     return <Navigate to="/informe" replace />
   }
 
