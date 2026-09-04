@@ -14,6 +14,15 @@ import { isAdmin } from '../services/auth'
 const { Text } = Typography
 const { RangePicker } = DatePicker
 
+function generarMeses() {
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+  const opciones = []
+  for (let y = 2027; y >= 2024; y--)
+    for (let i = 11; i >= 0; i--) opciones.push(`${meses[i]}-${y}`)
+  return opciones
+}
+const MESES = generarMeses()
+
 const fmt = n => '$ ' + Math.round(parseFloat(n) || 0).toLocaleString('es-CO')
 const fmtMes = m => {
   if (!m || String(m).startsWith('undefined')) return ''
@@ -82,6 +91,7 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
   const [editRecord, setEditRecord] = useState(null)
   const [editForm] = Form.useForm()
   const [saving, setSaving] = useState(false)
+  const [editTotal, setEditTotal] = useState(0)
 
   const filtrado = useMemo(() => {
     let d = [...datos]
@@ -97,17 +107,21 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
 
   function abrirEdit(r) {
     setEditRecord(r)
+    const a = parseFloat(r.vlr_admon) || 0
+    const v = parseFloat(r.vlr_vehiculo) || 0
+    const c = parseInt(r.cantidad) || 1
+    setEditTotal((a + v) * c)
     editForm.setFieldsValue({
-      fecha:       dayjs(r.fecha),
-      recibo:      r.factura,
-      interior:    String(r.interior),
-      nombre:      r.nombre,
-      concepto:    String(r.cod_concepto),
-      vlr_admon:   parseFloat(r.vlr_admon) || 0,
-      vlr_vehiculo: parseFloat(r.vlr_vehiculo) || 0,
-      mes_pago:    r.mes_pago || '',
-      cantidad:    parseInt(r.cantidad) || 1,
-      observacion: r.observacion || '',
+      fecha:        dayjs(r.fecha),
+      recibo:       r.factura,
+      interior:     String(r.interior),
+      nombre:       r.nombre,
+      concepto:     String(r.cod_concepto),
+      vlr_admon:    a,
+      vlr_vehiculo: v,
+      mes_pago:     r.mes_pago || '',
+      cantidad:     c,
+      observacion:  r.observacion || '',
     })
   }
 
@@ -124,6 +138,8 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
         fecha:        values.fecha.format('YYYY-MM-DD'),
         interior:     values.interior,
         nombre:       values.nombre || '',
+        cod_admin:    editRecord.cod_admin || '',
+        administrador: editRecord.administrador || '',
         cod_concepto: values.concepto,
         concepto:     concOpt?.label.split(' — ')[1] || '',
         vlr_admon: a, vlr_vehiculo: v,
@@ -223,7 +239,8 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
       </Card>
 
       <Modal open={!!editRecord} title="Editar Ingreso" onCancel={() => setEditRecord(null)} footer={null} width={700} destroyOnHidden>
-        <Form form={editForm} layout="vertical" onFinish={guardarEdit} style={{ marginTop: 12 }}>
+        <Form form={editForm} layout="vertical" onFinish={guardarEdit} style={{ marginTop: 12 }}
+          onValuesChange={(_, vals) => setEditTotal(((vals.vlr_admon||0) + (vals.vlr_vehiculo||0)) * (vals.cantidad||1))}>
           <Row gutter={12}>
             <Col span={6}><Form.Item label="Fecha" name="fecha"><DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" /></Form.Item></Col>
             <Col span={6}><Form.Item label="N° Recibo" name="recibo"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
@@ -232,12 +249,23 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
           </Row>
           <Form.Item label="Concepto" name="concepto"><Select options={CONCEPTOS_ING} /></Form.Item>
           <Row gutter={12}>
-            <Col span={6}><Form.Item label="Vlr Admón" name="vlr_admon"><InputNumber style={{ width: '100%' }} min={0} /></Form.Item></Col>
-            <Col span={6}><Form.Item label="Vlr Vehículo" name="vlr_vehiculo"><InputNumber style={{ width: '100%' }} min={0} /></Form.Item></Col>
-            <Col span={6}><Form.Item label="Mes pago" name="mes_pago"><Input /></Form.Item></Col>
+            <Col span={6}><Form.Item label="Vlr Admón" name="vlr_admon"><InputNumber style={{ width: '100%' }} min={0} step={1000} /></Form.Item></Col>
+            <Col span={6}><Form.Item label="Vlr Vehículo" name="vlr_vehiculo"><InputNumber style={{ width: '100%' }} min={0} step={1000} /></Form.Item></Col>
+            <Col span={6}>
+              <Form.Item label="Mes pago" name="mes_pago" rules={[{ required: true, message: 'Requerido' }]}>
+                <Select showSearch optionFilterProp="label" placeholder="-- seleccionar --"
+                  options={MESES.map(m => ({ value: m, label: m }))} />
+              </Form.Item>
+            </Col>
             <Col span={6}><Form.Item label="Cantidad" name="cantidad"><InputNumber style={{ width: '100%' }} min={1} /></Form.Item></Col>
           </Row>
           <Form.Item label="Observación" name="observacion"><Input.TextArea rows={2} /></Form.Item>
+          <div style={{ background: '#f6fdf8', border: '1px solid #d4edda', borderRadius: 6, padding: '10px 14px', marginBottom: 12 }}>
+            <Row justify="space-between" align="middle">
+              <Text style={{ fontSize: 13 }}>Total calculado</Text>
+              <Text strong style={{ color: '#1a5c2a', fontSize: 15, fontFamily: 'IBM Plex Mono, monospace' }}>{fmt(editTotal)}</Text>
+            </Row>
+          </div>
           <Row justify="end" gutter={8}>
             <Col><Button onClick={() => setEditRecord(null)}>Cancelar</Button></Col>
             <Col><Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />} style={{ background: '#1a5c2a', borderColor: '#1a5c2a' }}>Guardar cambios</Button></Col>
