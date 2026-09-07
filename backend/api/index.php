@@ -174,7 +174,7 @@ function route_me() {
 
 function route_get_habitantes() {
     auth_required();
-    $rows = db()->query('SELECT interior, nombre, (pin IS NOT NULL AND pin != "") AS hasPin FROM habitantes ORDER BY interior ASC')->fetchAll();
+    $rows = db()->query('SELECT interior, nombre, (pin IS NOT NULL AND pin != "") AS hasPin FROM habitantes ORDER BY CAST(interior AS UNSIGNED) ASC, interior ASC')->fetchAll();
     json_ok($rows);
 }
 

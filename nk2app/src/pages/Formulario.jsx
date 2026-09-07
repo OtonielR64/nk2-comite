@@ -105,23 +105,16 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [campos, setCampos] = useState({ admon: true, vehiculo: true })
-  const [totalPagar, setTotalPagar] = useState(0)
 
-  function calcTotal(_, allValues) {
-    const a = allValues?.vlr_admon || 0
-    const v = allValues?.vlr_vehiculo || 0
-    const c = allValues?.cantidad || 1
-    setTotalPagar((a + v) * c)
-  }
+  const watchAdmon    = Form.useWatch('vlr_admon',    form) || 0
+  const watchVehiculo = Form.useWatch('vlr_vehiculo', form) || 0
+  const totalPagar    = watchAdmon + watchVehiculo
 
   function onConceptoChange(val) {
     const est = estadoCampos(val)
     setCampos(est)
-    const admon    = est.admon    ? (form.getFieldValue('vlr_admon')    || 0) : 0
-    const vehiculo = est.vehiculo ? (form.getFieldValue('vlr_vehiculo') || 0) : 0
     if (!est.admon)    form.setFieldValue('vlr_admon', 0)
     if (!est.vehiculo) form.setFieldValue('vlr_vehiculo', 0)
-    setTotalPagar((admon + vehiculo) * (form.getFieldValue('cantidad') || 1))
   }
 
   function onInteriorChange(val) {
@@ -145,7 +138,7 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       vlr_vehiculo: campos.vehiculo ? (values.vlr_vehiculo || 0) : 0,
       mes_pago:     values.mes_pago,
       cantidad:     values.cantidad,
-      total:        totalPagar,
+      total:        (campos.admon ? (values.vlr_admon || 0) : 0) + (campos.vehiculo ? (values.vlr_vehiculo || 0) : 0),
       observacion:  values.observacion.trim(),
     }
     setLoading(true)
@@ -183,7 +176,6 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       form.resetFields()
     }
     setCampos({ admon: true, vehiculo: true })
-    setTotalPagar(0)
   }
 
   return (
@@ -192,7 +184,6 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       layout="vertical"
       initialValues={{ fecha: dayjs(), cantidad: 1, mes_pago: mesActual, vlr_admon: 0, vlr_vehiculo: 0 }}
       onFinish={onFinish}
-      onValuesChange={calcTotal}
     >
       <Row gutter={16}>
         <Col xs={24} sm={12}>

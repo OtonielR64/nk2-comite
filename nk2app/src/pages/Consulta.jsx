@@ -110,7 +110,7 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
     const a = parseFloat(r.vlr_admon) || 0
     const v = parseFloat(r.vlr_vehiculo) || 0
     const c = parseInt(r.cantidad) || 1
-    setEditTotal((a + v) * c)
+    setEditTotal(a + v)
     editForm.setFieldsValue({
       fecha:        dayjs(r.fecha),
       recibo:       r.factura,
@@ -143,7 +143,7 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
         cod_concepto: values.concepto,
         concepto:     concOpt?.label.split(' — ')[1] || '',
         vlr_admon: a, vlr_vehiculo: v,
-        cantidad: c, total: (a + v) * c,
+        cantidad: c, total: a + v,
         mes_pago: values.mes_pago,
         observacion: values.observacion,
       })
@@ -240,7 +240,7 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
 
       <Modal open={!!editRecord} title="Editar Ingreso" onCancel={() => setEditRecord(null)} footer={null} width={700} destroyOnHidden>
         <Form form={editForm} layout="vertical" onFinish={guardarEdit} style={{ marginTop: 12 }}
-          onValuesChange={(_, vals) => setEditTotal(((vals.vlr_admon||0) + (vals.vlr_vehiculo||0)) * (vals.cantidad||1))}>
+          onValuesChange={(_, vals) => setEditTotal((vals.vlr_admon||0) + (vals.vlr_vehiculo||0))}>
           <Row gutter={12}>
             <Col span={6}><Form.Item label="Fecha" name="fecha"><DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" /></Form.Item></Col>
             <Col span={6}><Form.Item label="N° Recibo" name="recibo"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
