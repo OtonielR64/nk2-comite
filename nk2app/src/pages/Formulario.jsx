@@ -105,7 +105,6 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [campos, setCampos] = useState({ admon: true, vehiculo: true })
-
   const watchAdmon    = Form.useWatch('vlr_admon',    form) || 0
   const watchVehiculo = Form.useWatch('vlr_vehiculo', form) || 0
   const totalPagar    = watchAdmon + watchVehiculo
@@ -123,6 +122,11 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
   }
 
   async function onFinish(values) {
+    const errores = []
+    if (campos.admon    && !(values.vlr_admon    > 0)) errores.push({ name: 'vlr_admon',    errors: ['Debe ser mayor a $ 0'] })
+    if (campos.vehiculo && !(values.vlr_vehiculo > 0)) errores.push({ name: 'vlr_vehiculo', errors: ['Debe ser mayor a $ 0'] })
+    if (errores.length) { form.setFields(errores); return }
+
     const selAdmin = personal.find(p => String(p.id) === String(values.administrador))
     const concOpt  = CONCEPTOS_ING.find(c => c.value === values.concepto)
     const datos = {
@@ -228,14 +232,18 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
 
       <Row gutter={16}>
         <Col xs={24} sm={12}>
-          <Form.Item label="Valor Admón ($)" name="vlr_admon" rules={[{ required: campos.admon, message: 'Requerido' }]}>
+          <Form.Item label="Valor Admón ($)" name="vlr_admon" rules={[
+            { required: campos.admon, message: 'Requerido' },
+          ]}>
             <InputNumber style={{ width: '100%' }} min={0} step={1000} disabled={!campos.admon}
               formatter={v => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={v => v.replace(/\$\s?|(,*)/g, '')} />
           </Form.Item>
         </Col>
         <Col xs={24} sm={12}>
-          <Form.Item label="Vehículo(s) ($)" name="vlr_vehiculo" rules={[{ required: campos.vehiculo, message: 'Requerido' }]}>
+          <Form.Item label="Vehículo(s) ($)" name="vlr_vehiculo" rules={[
+            { required: campos.vehiculo, message: 'Requerido' },
+          ]}>
             <InputNumber style={{ width: '100%' }} min={0} step={1000} disabled={!campos.vehiculo}
               formatter={v => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={v => v.replace(/\$\s?|(,*)/g, '')} />
