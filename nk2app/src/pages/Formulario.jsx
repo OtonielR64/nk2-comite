@@ -121,11 +121,20 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
     form.setFieldValue('nombre', hab?.nombre || '')
   }
 
-  async function onFinish(values) {
-    const errores = []
-    if (campos.admon    && !(values.vlr_admon    > 0)) errores.push({ name: 'vlr_admon',    errors: ['Debe ser mayor a $ 0'] })
-    if (campos.vehiculo && !(values.vlr_vehiculo > 0)) errores.push({ name: 'vlr_vehiculo', errors: ['Debe ser mayor a $ 0'] })
-    if (errores.length) { form.setFields(errores); return }
+  async function handleSubmit() {
+    const curr = form.getFieldsValue()
+    const zeroErrs = []
+    if (campos.admon    && !(curr.vlr_admon    > 0)) zeroErrs.push({ name: 'vlr_admon',    errors: ['Debe ser mayor a $ 0'] })
+    if (campos.vehiculo && !(curr.vlr_vehiculo > 0)) zeroErrs.push({ name: 'vlr_vehiculo', errors: ['Debe ser mayor a $ 0'] })
+
+    let values
+    try {
+      values = await form.validateFields()
+    } catch {
+      if (zeroErrs.length) form.setFields(zeroErrs)
+      return
+    }
+    if (zeroErrs.length) { form.setFields(zeroErrs); return }
 
     const selAdmin = personal.find(p => String(p.id) === String(values.administrador))
     const concOpt  = CONCEPTOS_ING.find(c => c.value === values.concepto)
@@ -187,7 +196,6 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       form={form}
       layout="vertical"
       initialValues={{ fecha: dayjs(), cantidad: 1, mes_pago: mesActual, vlr_admon: 0, vlr_vehiculo: 0 }}
-      onFinish={onFinish}
     >
       <Row gutter={16}>
         <Col xs={24} sm={12}>
@@ -295,7 +303,7 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       </div>
 
       <Row gutter={10}>
-        <Col span={8}><Button block type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />} style={{ background: '#1a5c2a', borderColor: '#1a5c2a' }}>Guardar</Button></Col>
+        <Col span={8}><Button block type="primary" onClick={handleSubmit} loading={loading} icon={<SaveOutlined />} style={{ background: '#1a5c2a', borderColor: '#1a5c2a' }}>Guardar</Button></Col>
         <Col span={8}><Button block icon={<ClearOutlined />} onClick={limpiar}>Limpiar</Button></Col>
         <Col span={8}><Button block icon={<CloseOutlined />} onClick={limpiar} style={{ background: '#4a4a4a', borderColor: '#4a4a4a', color: '#fff' }}>Cancelar</Button></Col>
       </Row>
