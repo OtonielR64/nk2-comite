@@ -71,8 +71,8 @@ export default function Informe() {
       const totalSal = sal.reduce((s, r) => s + (parseFloat(r.saldo)     || 0), 0)
       const balance  = totalIng - totalSal
       const saldoCaja = BASE_INGRESOS
-        + cacheIng.current.reduce((s, r) => s + (parseFloat(r.total) || 0), 0)
-        - cacheSal.current.reduce((s, r) => s + (parseFloat(r.saldo) || 0), 0)
+        + cacheIng.current.filter(r => r.fecha <= rango.hasta).reduce((s, r) => s + (parseFloat(r.total) || 0), 0)
+        - cacheSal.current.filter(r => r.fecha <= rango.hasta).reduce((s, r) => s + (parseFloat(r.saldo) || 0), 0)
 
       const catIng = {}
       ing.forEach(r => {
