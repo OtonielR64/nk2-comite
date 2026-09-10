@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Form, Input, InputNumber, Select, DatePicker, Button,
-  Card, Tabs, Row, Col, Typography, Divider,
+  Card, Tabs, Row, Col, Typography, Divider, Table, Space, Tag,
   message, Spin, Modal
 } from 'antd'
-import { SaveOutlined, ClearOutlined, CloseOutlined } from '@ant-design/icons'
+import { SaveOutlined, ClearOutlined, CloseOutlined, SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { api } from '../services/api'
 
@@ -451,6 +451,90 @@ function TabSalida({ personal, totales, onGuardado }) {
 }
 
 // ═══════════════════════════════════════════
+// TAB RESIDENTES
+// ═══════════════════════════════════════════
+function TabResidentes({ datos, onActualizar }) {
+  const [buscar, setBuscar]   = useState('')
+  const [modal, setModal]     = useState(null)
+  const [editRec, setEditRec] = useState(null)
+  const [form] = Form.useForm()
+  const [saving, setSaving]   = useState(false)
+
+  const filtrado = useMemo(() => {
+    if (!buscar) return datos
+    const q = buscar.toLowerCase()
+    return datos.filter(r => String(r.interior).toLowerCase().includes(q) || r.nombre.toLowerCase().includes(q))
+  }, [datos, buscar])
+
+  function abrirAdd() { form.resetFields(); setEditRec(null); setModal('add') }
+  function abrirEdit(r) { setEditRec(r); form.setFieldsValue({ interior: r.interior, nombre: r.nombre, pin: '' }); setModal('edit') }
+
+  async function guardar(values) {
+    setSaving(true)
+    try {
+      await api.saveHabitante({ interior: values.interior.trim().toUpperCase(), nombre: values.nombre.trim().toUpperCase(), pin: values.pin || '', modo: modal, oldInterior: editRec?.interior || '' })
+      message.success(modal === 'add' ? 'Residente agregado.' : 'Residente actualizado.')
+      setModal(null); onActualizar()
+    } catch (e) { message.error(e.message || 'Error al guardar.') }
+    setSaving(false)
+  }
+
+  async function eliminar(r) {
+    Modal.confirm({
+      title: '¿Eliminar residente?', content: `Interior ${r.interior} — ${r.nombre}`,
+      okText: 'Sí, eliminar', okType: 'danger', cancelText: 'Cancelar',
+      onOk: async () => {
+        try { await api.deleteHabitante({ interior: r.interior }); message.success('Residente eliminado.'); onActualizar() }
+        catch (e) { message.error(e.message || 'Error.') }
+      }
+    })
+  }
+
+  const columns = [
+    { title: 'Interior', dataIndex: 'interior', key: 'int',  width: 100, sorter: (a,b) => String(a.interior).localeCompare(String(b.interior)), render: v => <Tag color="blue">{v}</Tag> },
+    { title: 'Nombre',   dataIndex: 'nombre',   key: 'nom',  sorter: (a,b) => a.nombre.localeCompare(b.nombre) },
+    { title: 'PIN',      dataIndex: 'hasPin',   key: 'pin',  width: 110, render: v => v ? <Tag color="green">✓ Asignado</Tag> : <Tag color="orange">Sin PIN</Tag> },
+    { title: 'Acciones', key: 'acc', width: 110, fixed: 'right',
+      render: (_, r) => <Space size={4}><Button size="small" icon={<EditOutlined />} type="primary" ghost onClick={() => abrirEdit(r)} style={{ borderColor: '#854f0b', color: '#854f0b' }} /><Button size="small" icon={<DeleteOutlined />} danger onClick={() => eliminar(r)} /></Space> }
+  ]
+
+  return (
+    <>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row gutter={[12,12]} align="bottom">
+          <Col xs={24} sm={14} md={10}>
+            <div style={{ fontSize: 11, color: '#6b6b66', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.8px', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>Buscar</div>
+            <Input prefix={<SearchOutlined />} placeholder="Interior o nombre..." value={buscar} onChange={e => setBuscar(e.target.value)} allowClear />
+          </Col>
+          <Col><Button type="primary" icon={<PlusOutlined />} onClick={abrirAdd} style={{ background: '#1a5c2a', borderColor: '#1a5c2a' }}>Agregar residente</Button></Col>
+        </Row>
+        <Row style={{ marginTop: 8 }}><Text style={{ fontSize: 12, color: '#6b6b66' }}>{filtrado.length} residente{filtrado.length !== 1 ? 's' : ''}</Text></Row>
+      </Card>
+      <Card size="small" styles={{ body: { padding: 0 } }}>
+        <Table dataSource={filtrado} columns={columns} rowKey="interior" size="small"
+          pagination={{ pageSize: 20, showSizeChanger: true, showTotal: t => `${t} registros` }}
+          locale={{ emptyText: 'No se encontraron residentes' }} />
+      </Card>
+      <Modal open={!!modal} title={modal === 'add' ? '🏠 Agregar residente' : `✏ Editar — ${editRec?.interior}`} onCancel={() => setModal(null)} footer={null} destroyOnHidden>
+        <Form form={form} layout="vertical" onFinish={guardar} style={{ marginTop: 12 }}>
+          <Row gutter={12}>
+            <Col span={10}><Form.Item label="Interior" name="interior" rules={[{ required: true, message: 'Requerido' }]}><Input placeholder="Ej: 17, 67A" disabled={modal === 'edit'} /></Form.Item></Col>
+            <Col span={14}><Form.Item label="Nombre completo" name="nombre" rules={[{ required: true, message: 'Requerido' }]}><Input placeholder="Ej: JUAN PÉREZ" /></Form.Item></Col>
+          </Row>
+          <Form.Item label="PIN" name="pin" extra={modal === 'edit' ? 'Deja vacío para conservar el PIN actual' : 'PIN numérico para acceso del residente'}>
+            <Input.Password placeholder="••••" maxLength={10} />
+          </Form.Item>
+          <Row justify="end" gutter={8}>
+            <Col><Button onClick={() => setModal(null)}>Cancelar</Button></Col>
+            <Col><Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />} style={{ background: '#1a5c2a', borderColor: '#1a5c2a' }}>Guardar</Button></Col>
+          </Row>
+        </Form>
+      </Modal>
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════
 // PÁGINA PRINCIPAL
 // ═══════════════════════════════════════════
 export default function Formulario() {
@@ -487,10 +571,15 @@ export default function Formulario() {
       label: <span style={{ color: '#7a1a1a', fontWeight: 500 }}>Registro de Salida</span>,
       children: loadingInit ? spinner : <TabSalida personal={personal} totales={totales} onGuardado={cargarDatos} />,
     },
+    {
+      key: 'res',
+      label: <span style={{ color: '#2c3e7a', fontWeight: 500 }}>🏠 Residentes</span>,
+      children: loadingInit ? spinner : <TabResidentes datos={habitantes} onActualizar={cargarDatos} />,
+    },
   ]
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto', padding: '24px 16px' }}>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px' }}>
       <Card styles={{ body: { padding: 0 } }} bordered style={{ overflow: 'hidden' }}>
         <div style={{ background: '#1a5c2a', padding: '10px 18px' }}>
           <Text style={{ color: '#fff', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase' }}>
