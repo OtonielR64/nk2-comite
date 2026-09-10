@@ -149,7 +149,7 @@
         </div>
         <div class="field">
           <label>N° Recibo</label>
-          <input type="number" id="f-i-recibo" placeholder="Ej: 10815">
+          <input type="number" id="f-i-recibo" placeholder="Ej: 10815" oninput="autoBuscarRecibo()">
         </div>
         <div class="field">
           <label>Concepto</label>
@@ -743,6 +743,12 @@ function buscarIngresos() {
   if (desde)    filtrado = filtrado.filter(r => r[1] >= desde);
   if (hasta)    filtrado = filtrado.filter(r => r[1] <= hasta);
   renderIngresos(filtrado);
+}
+
+let _debRecibo;
+function autoBuscarRecibo() {
+  clearTimeout(_debRecibo);
+  _debRecibo = setTimeout(buscarIngresos, 300);
 }
 
 function limpiarFiltrosIng() {
