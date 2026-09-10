@@ -48,7 +48,7 @@ export default function AppLayout({ children }) {
   const visibleNav = NAV.filter(n => !n.adminOnly || admin)
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f4f3f0' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#4a4844' }}>
 
       {/* HEADER */}
       <div className="no-print" style={{
