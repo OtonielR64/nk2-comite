@@ -378,8 +378,8 @@ async function generarInforme() {
   const totalIng = ing.reduce((s,r) => s+(parseFloat(r[12])||0), 0);
   const totalSal = sal.reduce((s,r) => s+(parseFloat(r[8])||0), 0);
   const balance = totalIng - totalSal;
-  const saldoCaja = BASE_INGRESOS + datosIng.reduce((s,r)=>s+(parseFloat(r[12])||0),0)
-                  - datosSal.reduce((s,r)=>s+(parseFloat(r[8])||0),0);
+  const saldoCaja = BASE_INGRESOS + datosIng.filter(r=>r[1]<=rango.hasta).reduce((s,r)=>s+(parseFloat(r[12])||0),0)
+                  - datosSal.filter(r=>r[1]<=rango.hasta).reduce((s,r)=>s+(parseFloat(r[8])||0),0);
 
   // Resumen
   document.getElementById('r-total-ing').textContent = fmt(totalIng);
