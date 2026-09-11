@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Form, Input, Button, Card, Typography, Tabs } from 'antd'
 import { login, getRole, isLoggedIn } from '../services/auth'
@@ -15,12 +15,18 @@ export default function Login() {
   const location = useLocation()
   const next     = location.state?.next || '/'
 
-  const role = getRole()
-  if (isLoggedIn()) {
-    if (role === 'visor')     { navigate('/informe',   { replace: true }); return null }
-    if (role === 'residente') { navigate('/mi-cuenta', { replace: true }); return null }
-    navigate(next, { replace: true }); return null
-  }
+  const logged = isLoggedIn()
+  const role   = getRole()
+
+  useEffect(() => {
+    if (logged) {
+      if (role === 'visor')     { navigate('/informe',   { replace: true }); return }
+      if (role === 'residente') { navigate('/mi-cuenta', { replace: true }); return }
+      navigate(next, { replace: true })
+    }
+  }, [logged])
+
+  if (logged) return null
 
   async function handleAdmin({ username, password }) {
     setLoadingAdmin(true); setErrorAdmin('')
