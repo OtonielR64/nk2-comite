@@ -367,6 +367,11 @@
     <button onclick="conectarAPI()">Conectar y cargar datos</button>
   </div>
 
+  <!-- CARGA INICIAL -->
+  <div id="carga-inicial" style="display:none; text-align:center; padding:48px 0; color:#bbb; font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:0.5px;">
+    ⏳ Conectando con el servidor... puede tardar hasta 30 segundos si estuvo inactivo.
+  </div>
+
   <!-- ══════════ PANEL INGRESOS ══════════ -->
   <div class="panel active" id="panel-ing">
     <div class="card">
@@ -937,31 +942,87 @@ function conectarAPI() {
 }
 
 // ═══════════════════════════════════════
+// CACHÉ LOCAL (TTL 15 minutos)
+// ═══════════════════════════════════════
+const CACHE_TTL = 15 * 60 * 1000;
+
+function getCache(key) {
+  try {
+    const raw = localStorage.getItem('nk2_cache_' + key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem('nk2_cache_' + key); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function setCache(key, data) {
+  try { localStorage.setItem('nk2_cache_' + key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+// ═══════════════════════════════════════
 // CARGA DE DATOS DESDE GOOGLE SHEETS
 // ═══════════════════════════════════════
 async function cargarDatos() {
+  const habCachado = getCache('habitantes');
+  const perCachado = getCache('personal');
+  const usarCache  = habCachado && perCachado;
+
+  if (!usarCache) {
+    document.getElementById('carga-inicial').style.display = 'block';
+  }
+
   try {
-    const [hab, per, recibo, registro, totales] = await Promise.all([
-      apiFetch('getHabitantes'),
-      apiFetch('getPersonal'),
-      apiFetch('getNextRecibo'),
-      apiFetch('getNextRegistro'),
-      apiFetch('getTotales')
-    ]);
+    if (usarCache) {
+      habitantes = habCachado;
+      personal   = perCachado;
+      poblarHabitantes(habCachado);
+      poblarPersonal(perCachado);
 
-    habitantes = hab;
-    personal = per;
+      // Sólo 3 llamadas frescas (totales, recibo, registro cambian con cada guardado)
+      const [recibo, registro, totales] = await Promise.all([
+        apiFetch('getNextRecibo'),
+        apiFetch('getNextRegistro'),
+        apiFetch('getTotales')
+      ]);
 
-    poblarHabitantes(hab);
-    poblarPersonal(per);
+      document.getElementById('i-recibo').value = recibo.next;
+      document.getElementById('s-cod').value = registro.next;
+      if (totales) actualizarTotales(totales);
 
-    document.getElementById('i-recibo').value = recibo.next;
-    document.getElementById('s-cod').value = registro.next;
+      // Refrescar hab/per en segundo plano sin bloquear UI
+      Promise.all([apiFetch('getHabitantes'), apiFetch('getPersonal')])
+        .then(([hab, per]) => {
+          setCache('habitantes', hab); setCache('personal', per);
+          habitantes = hab; personal = per;
+          poblarHabitantes(hab); poblarPersonal(per);
+        }).catch(() => {});
 
-    if (totales) actualizarTotales(totales);
+    } else {
+      const [hab, per, recibo, registro, totales] = await Promise.all([
+        apiFetch('getHabitantes'),
+        apiFetch('getPersonal'),
+        apiFetch('getNextRecibo'),
+        apiFetch('getNextRegistro'),
+        apiFetch('getTotales')
+      ]);
+
+      setCache('habitantes', hab);
+      setCache('personal', per);
+      habitantes = hab;
+      personal   = per;
+      poblarHabitantes(hab);
+      poblarPersonal(per);
+
+      document.getElementById('i-recibo').value = recibo.next;
+      document.getElementById('s-cod').value = registro.next;
+      if (totales) actualizarTotales(totales);
+    }
 
   } catch(e) {
     console.error('Error cargando datos:', e);
+  } finally {
+    document.getElementById('carga-inicial').style.display = 'none';
   }
 }
 
