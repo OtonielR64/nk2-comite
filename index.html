@@ -391,7 +391,7 @@
           </div>
           <div class="field">
             <label>N° Recibo *</label>
-            <input type="number" id="i-recibo" class="auto" min="1">
+            <input type="number" id="i-recibo" class="auto" min="1" onchange="iVerificarReciboDuplicado()">
             <span class="hint">Editable — ajusta si es retroactivo</span>
             <span class="err-msg" id="e-i-recibo"></span>
           </div>
@@ -658,7 +658,7 @@ let API_URL = localStorage.getItem('nk2_api_url') || 'https://script.google.com/
 // QZ Tray ESC/POS RAW  +  fallback HTML
 // ═══════════════════════════════════════
 let ultimoRecibo = null;
-const recibosUsados = new Set(); // evita guardar el mismo N° Recibo dos veces
+const recibosExistentes = new Set(); // recibos ya guardados en el sistema (se carga desde getIngresos)
 
 function modalCerrar() {
   document.getElementById('modal-imprimir').classList.remove('show');
@@ -991,21 +991,23 @@ async function cargarDatos() {
       document.getElementById('s-cod').value = registro.next;
       if (totales) actualizarTotales(totales);
 
-      // Refrescar hab/per en segundo plano sin bloquear UI
-      Promise.all([apiFetch('getHabitantes'), apiFetch('getPersonal')])
-        .then(([hab, per]) => {
+      // Refrescar hab/per y recibos en segundo plano sin bloquear UI
+      Promise.all([apiFetch('getHabitantes'), apiFetch('getPersonal'), apiFetch('getIngresos')])
+        .then(([hab, per, ing]) => {
           setCache('habitantes', hab); setCache('personal', per);
           habitantes = hab; personal = per;
           poblarHabitantes(hab); poblarPersonal(per);
+          ing.forEach(r => recibosExistentes.add(String(r[0])));
         }).catch(() => {});
 
     } else {
-      const [hab, per, recibo, registro, totales] = await Promise.all([
+      const [hab, per, recibo, registro, totales, ing] = await Promise.all([
         apiFetch('getHabitantes'),
         apiFetch('getPersonal'),
         apiFetch('getNextRecibo'),
         apiFetch('getNextRegistro'),
-        apiFetch('getTotales')
+        apiFetch('getTotales'),
+        apiFetch('getIngresos')
       ]);
 
       setCache('habitantes', hab);
@@ -1014,6 +1016,7 @@ async function cargarDatos() {
       personal   = per;
       poblarHabitantes(hab);
       poblarPersonal(per);
+      ing.forEach(r => recibosExistentes.add(String(r[0])));
 
       document.getElementById('i-recibo').value = recibo.next;
       document.getElementById('s-cod').value = registro.next;
@@ -1211,6 +1214,15 @@ function setLoading(btnId, loading) {
 // ═══════════════════════════════════════
 // INGRESOS
 // ═══════════════════════════════════════
+function iVerificarReciboDuplicado() {
+  const rec = document.getElementById('i-recibo').value;
+  if (rec && recibosExistentes.size > 0 && recibosExistentes.has(String(rec))) {
+    markErr('i-recibo', '⚠ Este N° Recibo ya está registrado en el sistema');
+  } else {
+    clearErr('i-recibo');
+  }
+}
+
 function iAutoNombre() {
   const sel = document.getElementById('i-interior');
   const opt = sel.options[sel.selectedIndex];
@@ -1266,9 +1278,11 @@ async function iGuardar() {
   showToast('toast-ing', errores);
   if(errores.length) return;
 
-  // Bloquear reenvío si el mismo recibo ya fue guardado en esta sesión
-  if(recibosUsados.has(String(rec))) {
-    if(!confirm('⚠ El N° Recibo ' + rec + ' ya fue guardado en esta sesión.\n¿Confirmas que deseas guardarlo de nuevo?')) return;
+  // Bloquear si el recibo ya existe en el sistema
+  if(recibosExistentes.size > 0 && recibosExistentes.has(String(rec))) {
+    markErr('i-recibo', '⚠ Este N° Recibo ya está registrado en el sistema');
+    showToast('toast-ing', ['N° Recibo ' + rec + ' duplicado — ya existe en el sistema']);
+    return;
   }
 
   const selAdmin = document.getElementById('i-admin');
@@ -1296,7 +1310,7 @@ async function iGuardar() {
   try {
     const res = await apiFetch('saveIngreso', datos);
     if(res.ok){
-      recibosUsados.add(String(datos.factura));
+      recibosExistentes.add(String(datos.factura));
       showSuccess('success-ing', res.mensaje);
       document.getElementById('toast-ing').classList.remove('show');
       // Guardar datos para reimpresión y habilitar botón
