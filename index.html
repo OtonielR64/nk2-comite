@@ -658,6 +658,7 @@ let API_URL = localStorage.getItem('nk2_api_url') || 'https://script.google.com/
 // QZ Tray ESC/POS RAW  +  fallback HTML
 // ═══════════════════════════════════════
 let ultimoRecibo = null;
+const recibosUsados = new Set(); // evita guardar el mismo N° Recibo dos veces
 
 function modalCerrar() {
   document.getElementById('modal-imprimir').classList.remove('show');
@@ -1253,6 +1254,11 @@ async function iGuardar() {
   showToast('toast-ing', errores);
   if(errores.length) return;
 
+  // Bloquear reenvío si el mismo recibo ya fue guardado en esta sesión
+  if(recibosUsados.has(String(rec))) {
+    if(!confirm('⚠ El N° Recibo ' + rec + ' ya fue guardado en esta sesión.\n¿Confirmas que deseas guardarlo de nuevo?')) return;
+  }
+
   const selAdmin = document.getElementById('i-admin');
   const selConc = document.getElementById('i-concepto');
   const datos = {
@@ -1272,10 +1278,13 @@ async function iGuardar() {
     observacion: document.getElementById('i-obs').value.trim()
   };
 
+  const btnGuardarIng = document.getElementById('btn-guardar-ing');
+  btnGuardarIng.disabled = true;
   setLoading('btn-guardar-ing', true);
   try {
     const res = await apiFetch('saveIngreso', datos);
     if(res.ok){
+      recibosUsados.add(String(datos.factura));
       showSuccess('success-ing', res.mensaje);
       document.getElementById('toast-ing').classList.remove('show');
       // Guardar datos para reimpresión y habilitar botón
@@ -1295,8 +1304,10 @@ async function iGuardar() {
     }
   } catch(e) {
     alert('Error de conexión. Verifica tu URL de API.');
+  } finally {
+    btnGuardarIng.disabled = false;
+    setLoading('btn-guardar-ing', false);
   }
-  setLoading('btn-guardar-ing', false);
 }
 
 function iLimpiar() {
@@ -1365,6 +1376,8 @@ async function sGuardar() {
     observacion: document.getElementById('s-obs').value.trim()
   };
 
+  const btnGuardarSal = document.getElementById('btn-guardar-sal');
+  btnGuardarSal.disabled = true;
   setLoading('btn-guardar-sal', true);
   try {
     const res = await apiFetch('saveSalida', datos);
@@ -1383,8 +1396,10 @@ async function sGuardar() {
     }
   } catch(e) {
     alert('Error de conexión. Verifica tu URL de API.');
+  } finally {
+    btnGuardarSal.disabled = false;
+    setLoading('btn-guardar-sal', false);
   }
-  setLoading('btn-guardar-sal', false);
 }
 
 function sLimpiar() {
