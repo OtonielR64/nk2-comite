@@ -292,8 +292,21 @@ const fmtFecha = f => { if(!f) return ''; const d=new Date(f+'T12:00:00'); retur
 
 let registroActual = null;
 
-function apiFetch(action, params={}) {
-  return fetch(API_URL+'?'+new URLSearchParams({action, token: localStorage.getItem('nk2_api_token')||'', ...params})).then(r=>r.json());
+async function apiFetch(action, params={}) {
+  const qs = new URLSearchParams({action, token: localStorage.getItem('nk2_api_token')||'', ...params});
+  for (let intento = 0; intento < 3; intento++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 35000);
+    try {
+      const r = await fetch(API_URL+'?'+qs, { signal: ctrl.signal });
+      clearTimeout(timer);
+      return await r.json();
+    } catch (e) {
+      clearTimeout(timer);
+      if (intento === 2) throw e;
+      await new Promise(ok => setTimeout(ok, 2000));
+    }
+  }
 }
 
 // Cargar personal
