@@ -534,7 +534,7 @@
           </div>
           <div class="field">
             <label>N° Registro *</label>
-            <input type="text" id="s-cod" class="auto">
+            <input type="text" id="s-cod" class="auto" onchange="sVerificarRegistroDuplicado()">
             <span class="hint">Editable — ajusta si es retroactivo</span>
             <span class="err-msg" id="e-s-cod"></span>
           </div>
@@ -658,7 +658,8 @@ let API_URL = localStorage.getItem('nk2_api_url') || 'https://script.google.com/
 // QZ Tray ESC/POS RAW  +  fallback HTML
 // ═══════════════════════════════════════
 let ultimoRecibo = null;
-const recibosExistentes = new Set(); // recibos ya guardados en el sistema (se carga desde getIngresos)
+const recibosExistentes  = new Set(); // recibos ya guardados (se carga desde getIngresos)
+const registrosExistentes = new Set(); // registros de salida ya guardados (se carga desde getSalidas)
 
 function modalCerrar() {
   document.getElementById('modal-imprimir').classList.remove('show');
@@ -991,23 +992,25 @@ async function cargarDatos() {
       document.getElementById('s-cod').value = registro.next;
       if (totales) actualizarTotales(totales);
 
-      // Refrescar hab/per y recibos en segundo plano sin bloquear UI
-      Promise.all([apiFetch('getHabitantes'), apiFetch('getPersonal'), apiFetch('getIngresos')])
-        .then(([hab, per, ing]) => {
+      // Refrescar hab/per y cargar números existentes en segundo plano sin bloquear UI
+      Promise.all([apiFetch('getHabitantes'), apiFetch('getPersonal'), apiFetch('getIngresos'), apiFetch('getSalidas')])
+        .then(([hab, per, ing, sal]) => {
           setCache('habitantes', hab); setCache('personal', per);
           habitantes = hab; personal = per;
           poblarHabitantes(hab); poblarPersonal(per);
           ing.forEach(r => recibosExistentes.add(String(r[0])));
+          sal.forEach(r => registrosExistentes.add(String(r[0])));
         }).catch(() => {});
 
     } else {
-      const [hab, per, recibo, registro, totales, ing] = await Promise.all([
+      const [hab, per, recibo, registro, totales, ing, sal] = await Promise.all([
         apiFetch('getHabitantes'),
         apiFetch('getPersonal'),
         apiFetch('getNextRecibo'),
         apiFetch('getNextRegistro'),
         apiFetch('getTotales'),
-        apiFetch('getIngresos')
+        apiFetch('getIngresos'),
+        apiFetch('getSalidas')
       ]);
 
       setCache('habitantes', hab);
@@ -1017,6 +1020,7 @@ async function cargarDatos() {
       poblarHabitantes(hab);
       poblarPersonal(per);
       ing.forEach(r => recibosExistentes.add(String(r[0])));
+      sal.forEach(r => registrosExistentes.add(String(r[0])));
 
       document.getElementById('i-recibo').value = recibo.next;
       document.getElementById('s-cod').value = registro.next;
@@ -1357,6 +1361,15 @@ function iLimpiar() {
 // ═══════════════════════════════════════
 // SALIDAS
 // ═══════════════════════════════════════
+function sVerificarRegistroDuplicado() {
+  const cod = document.getElementById('s-cod').value.trim();
+  if (cod && registrosExistentes.size > 0 && registrosExistentes.has(cod)) {
+    markErr('s-cod', '⚠ Este N° Registro ya está registrado en el sistema');
+  } else {
+    clearErr('s-cod');
+  }
+}
+
 function sCalcSaldo() {
   const t = parseFloat(document.getElementById('s-total').value)||0;
   const a = parseFloat(document.getElementById('s-abono').value)||0;
@@ -1388,6 +1401,14 @@ async function sGuardar() {
   showToast('toast-sal', errores);
   if(errores.length) return;
 
+  // Bloquear si el registro ya existe en el sistema
+  const codSal = document.getElementById('s-cod').value.trim();
+  if(registrosExistentes.size > 0 && registrosExistentes.has(codSal)) {
+    markErr('s-cod', '⚠ Este N° Registro ya está registrado en el sistema');
+    showToast('toast-sal', ['N° Registro ' + codSal + ' duplicado — ya existe en el sistema']);
+    return;
+  }
+
   const selAdmin = document.getElementById('s-admin');
   const selConc = document.getElementById('s-concepto');
   const datos = {
@@ -1408,6 +1429,7 @@ async function sGuardar() {
   try {
     const res = await apiFetch('saveSalida', datos, { retries: 0, timeout: 60000 });
     if(res.ok){
+      registrosExistentes.add(datos.cod_registro);
       document.getElementById('toast-sal').classList.remove('show');
       sLimpiar();
       cargarDatos();
