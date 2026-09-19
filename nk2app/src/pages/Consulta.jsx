@@ -157,9 +157,22 @@ function TabIngresos({ datos, habitantes, onActualizar, dupIng }) {
   }
 
   async function eliminar(r) {
+    const fmt = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v)
     Modal.confirm({
-      title: '¿Eliminar registro?',
-      content: 'Esta acción no se puede deshacer.',
+      title: 'Confirmar eliminación',
+      content: (
+        <div style={{ lineHeight: 1.8 }}>
+          <p style={{ marginBottom: 8 }}>¿Está seguro de eliminar este ingreso?</p>
+          <div style={{ background: '#fff1f0', border: '1px solid #ffccc7', borderRadius: 6, padding: '8px 12px', fontSize: 13 }}>
+            <div><strong>Recibo:</strong> {r.factura}</div>
+            <div><strong>Fecha:</strong> {r.fecha}</div>
+            <div><strong>Interior:</strong> {r.interior} — {r.nombre}</div>
+            <div><strong>Concepto:</strong> {r.concepto}</div>
+            <div><strong>Total:</strong> {fmt(r.total)}</div>
+          </div>
+          <p style={{ marginTop: 8, color: '#cf1322', fontSize: 12 }}>Esta acción no se puede deshacer.</p>
+        </div>
+      ),
       okText: 'Sí, eliminar', okType: 'danger', cancelText: 'Cancelar',
       onOk: async () => {
         try {

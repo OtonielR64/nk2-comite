@@ -387,8 +387,10 @@
 <!-- CONFIRMAR ELIMINACIÓN -->
 <div class="confirm-overlay" id="confirm-box">
   <div class="confirm-box">
-    <h3>¿Eliminar registro?</h3>
-    <p>Esta acción no se puede deshacer. El registro será eliminado permanentemente de Google Sheets.</p>
+    <h3>Confirmar eliminación</h3>
+    <p>¿Está seguro de eliminar este registro?</p>
+    <div id="confirm-detalle" style="background:#fff1f0;border:1px solid #ffccc7;border-radius:6px;padding:10px 12px;font-size:13px;margin-bottom:12px;line-height:1.8;"></div>
+    <p style="color:#cf1322;font-size:12px;margin-bottom:16px;">Esta acción no se puede deshacer.</p>
     <div class="confirm-btns">
       <button class="btn btn-sec" onclick="cerrarConfirm()">Cancelar</button>
       <button class="btn btn-del" onclick="confirmarEliminar()">Sí, eliminar</button>
@@ -1012,6 +1014,14 @@ async function guardarEdicionSal() {
 // ══════════ ELIMINAR ══════════
 function abrirConfirm(tipo, i) {
   pendingDelete = { tipo, i };
+  const el = document.getElementById('confirm-detalle');
+  if (tipo === 'ing') {
+    const r = datosIng[i];
+    el.innerHTML = `<b>Recibo:</b> ${r[0]}<br><b>Fecha:</b> ${r[1]}<br><b>Interior:</b> ${r[2]} — ${r[3]}<br><b>Concepto:</b> ${r[7]}<br><b>Total:</b> ${fmt(r[12])}`;
+  } else {
+    const r = datosSal[i];
+    el.innerHTML = `<b>Registro:</b> ${r[0]}<br><b>Fecha:</b> ${r[1]}<br><b>Concepto:</b> ${r[5]}<br><b>Total:</b> ${fmt(r[6])}`;
+  }
   document.getElementById('confirm-box').classList.add('show');
 }
 function cerrarConfirm() {

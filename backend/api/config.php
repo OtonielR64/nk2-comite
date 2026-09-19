@@ -2,9 +2,9 @@
 // ── Configuración de base de datos ────────────────────────────────────────
 // Reemplaza estos valores con los de tu Hostinger hPanel → MySQL
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'TU_NOMBRE_BD');       // ej: u123456789_nk2db
-define('DB_USER', 'TU_USUARIO_MYSQL');   // ej: u123456789_nk2user
-define('DB_PASS', 'TU_PASSWORD_MYSQL');
+define('DB_NAME', 'u228070604_nk2bd');
+define('DB_USER', 'u228070604_nk2admin');
+define('DB_PASS', 'TU_PASSWORD_MYSQL');  // contraseña configurada en hPanel
 define('DB_CHARSET', 'utf8mb4');
 
 // ── JWT ───────────────────────────────────────────────────────────────────
