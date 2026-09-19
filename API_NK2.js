@@ -241,6 +241,7 @@ function getTotales() {
 }
 
 function saveIngreso(p) {
+  invalidarCache_();
   SpreadsheetApp.getActiveSpreadsheet()
     .getSheetByName('BD_INGRESOS').appendRow([
       p.factura, p.fecha, p.interior, p.nombre,
@@ -253,6 +254,7 @@ function saveIngreso(p) {
 }
 
 function saveSalida(p) {
+  invalidarCache_();
   const total = parseFloat(p.vlr_total)||0;
   const abono = parseFloat(p.abono)||0;
   SpreadsheetApp.getActiveSpreadsheet()
@@ -264,8 +266,17 @@ function saveSalida(p) {
   return { ok: true, mensaje: 'Salida guardada correctamente' };
 }
 
+// ══════════ CACHÉ ══════════
+function invalidarCache_() {
+  CacheService.getScriptCache().removeAll(['nk2_ingresos', 'nk2_salidas']);
+}
+
 // ══════════ CONSULTAS ══════════
 function getIngresos() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('nk2_ingresos');
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BD_INGRESOS');
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
@@ -274,12 +285,10 @@ function getIngresos() {
   for (let i = 0; i < rows.length; i++) {
     let r = rows[i];
     if (r[0] === '') continue;
-    const sheetRow = i + 2; // fila real en el sheet (antes de filtrar)
+    const sheetRow = i + 2;
     r = r.map(c => c instanceof Date ? Utilities.formatDate(c, 'America/Bogota', 'yyyy-MM-dd') : c);
     const esFecha = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
-    if (!esFecha(r[1])) {
-      r.splice(1, 1);
-    }
+    if (!esFecha(r[1])) { r.splice(1, 1); }
     const codPos4 = parseInt(r[4]);
     const codPos6 = parseInt(r[6]);
     const r6esCodigoConcepto = codPos6 >= 11 && codPos6 <= 20
@@ -288,13 +297,18 @@ function getIngresos() {
       r.splice(4, 0, '', '');
     }
     const normalized = r.slice(0, 14);
-    normalized[14] = sheetRow; // índice 14: fila real para deleteRow
+    normalized[14] = sheetRow;
     result.push(normalized);
   }
+  try { cache.put('nk2_ingresos', JSON.stringify(result), 60); } catch(e) {}
   return result;
 }
 
 function getSalidas() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('nk2_salidas');
+  if (cached) { try { return JSON.parse(cached); } catch(e) {} }
+
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BD_SALIDAS');
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
@@ -304,13 +318,15 @@ function getSalidas() {
     const r = rows[i];
     if (r[0] === '') continue;
     const normalized = r.map(c => c instanceof Date ? Utilities.formatDate(c, 'America/Bogota', 'yyyy-MM-dd') : c);
-    normalized[10] = i + 2; // índice 10: fila real para deleteRow
+    normalized[10] = i + 2;
     result.push(normalized);
   }
+  try { cache.put('nk2_salidas', JSON.stringify(result), 60); } catch(e) {}
   return result;
 }
 
 function updateIngreso(p) {
+  invalidarCache_();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BD_INGRESOS');
   const row = parseInt(p.rowIndex);
   const values = [
@@ -325,6 +341,7 @@ function updateIngreso(p) {
 }
 
 function updateSalida(p) {
+  invalidarCache_();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BD_SALIDAS');
   const row = parseInt(p.rowIndex);
   const total = parseFloat(p.vlr_total)||0;
@@ -339,6 +356,7 @@ function updateSalida(p) {
 }
 
 function deleteRow(p) {
+  invalidarCache_();
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(p.sheet);
   if (!sheet) return { ok: false, error: 'Hoja no encontrada: ' + p.sheet };
   const rowIndex = parseInt(p.rowIndex);
