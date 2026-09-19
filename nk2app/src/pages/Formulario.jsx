@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Form, Input, InputNumber, Select, DatePicker, Button,
   Card, Tabs, Row, Col, Typography, Divider, Table, Space, Tag,
@@ -101,7 +101,7 @@ function estadoCampos(cod) {
 // ═══════════════════════════════════════════
 // TAB INGRESO
 // ═══════════════════════════════════════════
-function TabIngreso({ habitantes, personal, totales, onGuardado }) {
+function TabIngreso({ habitantes, personal, totales, onGuardado, recibosExistentes }) {
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [campos, setCampos] = useState({ admon: true, vehiculo: true })
@@ -154,9 +154,14 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
       total:        (campos.admon ? (values.vlr_admon || 0) : 0) + (campos.vehiculo ? (values.vlr_vehiculo || 0) : 0),
       observacion:  values.observacion.trim(),
     }
+    if (recibosExistentes.current.size > 0 && recibosExistentes.current.has(String(datos.factura))) {
+      form.setFields([{ name: 'recibo', errors: ['⚠ Este N° Recibo ya está registrado en el sistema'] }])
+      return
+    }
     setLoading(true)
     try {
       const res = await api.saveIngreso(datos)
+      recibosExistentes.current.add(String(datos.factura))
       message.success(res.mensaje)
       await onGuardado()
       limpiar()
@@ -204,7 +209,18 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
           </Form.Item>
         </Col>
         <Col xs={24} sm={12}>
-          <Form.Item label="N° Recibo" name="recibo" rules={[{ required: true, message: 'Requerido' }]}
+          <Form.Item label="N° Recibo" name="recibo"
+            validateTrigger="onChange"
+            rules={[
+              { required: true, message: 'Requerido' },
+              { validator: (_, value) => {
+                  if (value && recibosExistentes.current.size > 0 && recibosExistentes.current.has(String(value))) {
+                    return Promise.reject(new Error('⚠ Este N° Recibo ya está registrado en el sistema'))
+                  }
+                  return Promise.resolve()
+                }
+              }
+            ]}
             extra={<Text type="secondary" style={{ fontSize: 11 }}>Editable — ajusta si es retroactivo</Text>}>
             <InputNumber style={{ width: '100%' }} min={1} />
           </Form.Item>
@@ -314,7 +330,7 @@ function TabIngreso({ habitantes, personal, totales, onGuardado }) {
 // ═══════════════════════════════════════════
 // TAB SALIDA
 // ═══════════════════════════════════════════
-function TabSalida({ personal, totales, onGuardado }) {
+function TabSalida({ personal, totales, onGuardado, registrosExistentes }) {
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [vals, setVals] = useState({ total: 0, abono: 0 })
@@ -335,9 +351,14 @@ function TabSalida({ personal, totales, onGuardado }) {
       abono:         values.abono || 0,
       observacion:   values.observacion.trim(),
     }
+    if (registrosExistentes.current.size > 0 && registrosExistentes.current.has(datos.cod_registro)) {
+      form.setFields([{ name: 'cod_registro', errors: ['⚠ Este N° Registro ya está guardado en el sistema'] }])
+      return
+    }
     setLoading(true)
     try {
       const res = await api.saveSalida(datos)
+      registrosExistentes.current.add(datos.cod_registro)
       message.success(res.mensaje)
       onGuardado()
       limpiar()
@@ -371,7 +392,19 @@ function TabSalida({ personal, totales, onGuardado }) {
           </Form.Item>
         </Col>
         <Col xs={24} sm={12}>
-          <Form.Item label="N° Registro" name="cod_registro" rules={[{ required: true, message: 'Requerido' }]}
+          <Form.Item label="N° Registro" name="cod_registro"
+            validateTrigger="onChange"
+            rules={[
+              { required: true, message: 'Requerido' },
+              { validator: (_, value) => {
+                  const v = (value || '').trim()
+                  if (v && registrosExistentes.current.size > 0 && registrosExistentes.current.has(v)) {
+                    return Promise.reject(new Error('⚠ Este N° Registro ya está guardado en el sistema'))
+                  }
+                  return Promise.resolve()
+                }
+              }
+            ]}
             extra={<Text type="secondary" style={{ fontSize: 11 }}>Editable — ajusta si es retroactivo</Text>}>
             <Input />
           </Form.Item>
@@ -542,15 +575,20 @@ export default function Formulario() {
   const [personal,     setPersonal]     = useState([])
   const [totales,      setTotales]      = useState(null)
   const [loadingInit,  setLoadingInit]  = useState(true)
+  const recibosExistentes   = useRef(new Set())
+  const registrosExistentes = useRef(new Set())
 
   async function cargarDatos() {
     try {
-      const [hab, per, tots] = await Promise.all([
+      const [hab, per, tots, ing, sal] = await Promise.all([
         api.getHabitantes(), api.getPersonal(), api.getTotales(),
+        api.getIngresos(), api.getSalidas()
       ])
       setHabitantes(hab)
       setPersonal(per)
       setTotales(tots)
+      recibosExistentes.current   = new Set(ing.map(r => String(r.factura)))
+      registrosExistentes.current = new Set(sal.map(r => r.cod_registro))
     } catch {
       message.error('Error al conectar con la API.')
     }
@@ -564,12 +602,12 @@ export default function Formulario() {
     {
       key: 'ing',
       label: <span style={{ color: '#1a5c2a', fontWeight: 500 }}>Registro de Ingreso</span>,
-      children: loadingInit ? spinner : <TabIngreso habitantes={habitantes} personal={personal} totales={totales} onGuardado={cargarDatos} />,
+      children: loadingInit ? spinner : <TabIngreso habitantes={habitantes} personal={personal} totales={totales} onGuardado={cargarDatos} recibosExistentes={recibosExistentes} />,
     },
     {
       key: 'sal',
       label: <span style={{ color: '#7a1a1a', fontWeight: 500 }}>Registro de Salida</span>,
-      children: loadingInit ? spinner : <TabSalida personal={personal} totales={totales} onGuardado={cargarDatos} />,
+      children: loadingInit ? spinner : <TabSalida personal={personal} totales={totales} onGuardado={cargarDatos} registrosExistentes={registrosExistentes} />,
     },
     {
       key: 'res',

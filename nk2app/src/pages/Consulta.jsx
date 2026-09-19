@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   Table, Button, Input, Select, DatePicker, Form, InputNumber,
-  Modal, Card, Row, Col, Space, Typography, Tag, Tabs, Statistic, message
+  Modal, Card, Row, Col, Space, Typography, Tag, Tabs, Statistic, message, Alert
 } from 'antd'
 import {
   ClearOutlined, FileExcelOutlined,
@@ -86,12 +86,13 @@ function exportarCSV(tipo, datos) {
 // ═══════════════════════════════════════════
 // TAB INGRESOS
 // ═══════════════════════════════════════════
-function TabIngresos({ datos, habitantes, onActualizar }) {
+function TabIngresos({ datos, habitantes, onActualizar, dupIng }) {
   const [filtros, setFiltros] = useState({ interior: '', recibo: '', concepto: '', rango: null })
   const [editRecord, setEditRecord] = useState(null)
   const [editForm] = Form.useForm()
   const [saving, setSaving] = useState(false)
   const [editTotal, setEditTotal] = useState(0)
+  const [soloDups, setSoloDups] = useState(false)
 
   const filtrado = useMemo(() => {
     let d = [...datos]
@@ -100,8 +101,9 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
     if (filtros.concepto) d = d.filter(r => String(r.cod_concepto) === filtros.concepto)
     if (filtros.rango?.[0]) d = d.filter(r => r.fecha >= filtros.rango[0].format('YYYY-MM-DD'))
     if (filtros.rango?.[1]) d = d.filter(r => r.fecha <= filtros.rango[1].format('YYYY-MM-DD'))
+    if (soloDups) d = d.filter(r => dupIng.has(String(r.factura)))
     return d
-  }, [datos, filtros])
+  }, [datos, filtros, soloDups, dupIng])
 
   const totalSum = filtrado.reduce((s, r) => s + (parseFloat(r.total) || 0), 0)
 
@@ -170,7 +172,14 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
   }
 
   const columns = [
-    { title: 'Recibo',    dataIndex: 'factura',     key: 'recibo',    render: v => <Tag color="green">{v}</Tag>, sorter: (a,b) => a.factura - b.factura },
+    { title: 'Recibo', dataIndex: 'factura', key: 'recibo',
+      render: v => (
+        <Space size={4}>
+          <Tag color="green">{v}</Tag>
+          {dupIng.has(String(v)) && <span style={{ color: '#c0392b', fontSize: 10, fontWeight: 700 }}>DUP</span>}
+        </Space>
+      ),
+      sorter: (a,b) => a.factura - b.factura },
     { title: 'Fecha',     dataIndex: 'fecha',        key: 'fecha',     render: v => fmtFecha(v), sorter: (a,b) => a.fecha.localeCompare(b.fecha) },
     { title: 'Interior',  dataIndex: 'interior',     key: 'interior' },
     { title: 'Nombre',    dataIndex: 'nombre',       key: 'nombre' },
@@ -227,6 +236,29 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
         </Row>
       </Card>
 
+      {dupIng.size > 0 && (
+        <Alert
+          type="warning"
+          style={{ marginBottom: 16 }}
+          message={
+            <span>
+              <strong>Recibos duplicados en el sistema:</strong>{' '}
+              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 }}>
+                {[...dupIng].sort((a,b) => Number(a)-Number(b)).join(' · ')}
+              </span>
+            </span>
+          }
+          action={
+            <Space>
+              {!soloDups
+                ? <Button size="small" onClick={() => setSoloDups(true)} style={{ borderColor: '#854f0b', color: '#854f0b' }}>Ver solo duplicados</Button>
+                : <Button size="small" onClick={() => setSoloDups(false)}>Ver todos</Button>
+              }
+            </Space>
+          }
+        />
+      )}
+
       <Row gutter={12} style={{ marginBottom: 16 }}>
         <Col xs={12} sm={8}><Card size="small"><Statistic title="Registros" value={filtrado.length} valueStyle={{ fontFamily: 'IBM Plex Mono, monospace' }} /></Card></Col>
         <Col xs={12} sm={8}><Card size="small"><Statistic title="Total ingresos" value={fmt(totalSum)} valueStyle={{ color: '#1a5c2a', fontFamily: 'IBM Plex Mono, monospace', fontSize: 16 }} /></Card></Col>
@@ -235,7 +267,8 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
       <Card size="small" styles={{ body: { padding: 0 } }}>
         <Table dataSource={filtrado} columns={columns} rowKey="id" size="small" scroll={{ x: 1100 }}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: t => `${t} registros` }}
-          locale={{ emptyText: 'No se encontraron registros' }} />
+          locale={{ emptyText: 'No se encontraron registros' }}
+          rowClassName={r => dupIng.has(String(r.factura)) ? 'dup-row' : ''} />
       </Card>
 
       <Modal open={!!editRecord} title="Editar Ingreso" onCancel={() => setEditRecord(null)} footer={null} width={700} destroyOnHidden>
@@ -279,11 +312,12 @@ function TabIngresos({ datos, habitantes, onActualizar }) {
 // ═══════════════════════════════════════════
 // TAB SALIDAS
 // ═══════════════════════════════════════════
-function TabSalidas({ datos, onActualizar }) {
+function TabSalidas({ datos, onActualizar, dupSal }) {
   const [filtros, setFiltros] = useState({ cod: '', concepto: '', rango: null })
   const [editRecord, setEditRecord] = useState(null)
   const [editForm] = Form.useForm()
   const [saving, setSaving] = useState(false)
+  const [soloDups, setSoloDups] = useState(false)
 
   const filtrado = useMemo(() => {
     let d = [...datos]
@@ -291,8 +325,9 @@ function TabSalidas({ datos, onActualizar }) {
     if (filtros.concepto) d = d.filter(r => String(r.cod_concepto) === filtros.concepto)
     if (filtros.rango?.[0]) d = d.filter(r => r.fecha >= filtros.rango[0].format('YYYY-MM-DD'))
     if (filtros.rango?.[1]) d = d.filter(r => r.fecha <= filtros.rango[1].format('YYYY-MM-DD'))
+    if (soloDups) d = d.filter(r => dupSal.has(r.cod_registro))
     return d
-  }, [datos, filtros])
+  }, [datos, filtros, soloDups, dupSal])
 
   const totalSum = filtrado.reduce((s, r) => s + (parseFloat(r.vlr_total) || 0), 0)
   const abonoSum = filtrado.reduce((s, r) => s + (parseFloat(r.abono)     || 0), 0)
@@ -350,7 +385,14 @@ function TabSalidas({ datos, onActualizar }) {
   }
 
   const columns = [
-    { title: 'N° Reg.',      dataIndex: 'cod_registro',  key: 'cod',    render: v => <Tag color="red">{v}</Tag> },
+    { title: 'N° Reg.', dataIndex: 'cod_registro', key: 'cod',
+      render: v => (
+        <Space size={4}>
+          <Tag color="red">{v}</Tag>
+          {dupSal.has(v) && <span style={{ color: '#c0392b', fontSize: 10, fontWeight: 700 }}>DUP</span>}
+        </Space>
+      )
+    },
     { title: 'Fecha',        dataIndex: 'fecha',          key: 'fecha',  render: v => fmtFecha(v), sorter: (a,b) => a.fecha.localeCompare(b.fecha) },
     { title: 'Administrador',dataIndex: 'administrador',  key: 'admin' },
     { title: 'Concepto',     key: 'concepto',             render: (_, r) => `${r.cod_concepto} — ${r.concepto}` },
@@ -398,6 +440,29 @@ function TabSalidas({ datos, onActualizar }) {
         </Row>
       </Card>
 
+      {dupSal.size > 0 && (
+        <Alert
+          type="warning"
+          style={{ marginBottom: 16 }}
+          message={
+            <span>
+              <strong>Registros duplicados en el sistema:</strong>{' '}
+              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 12 }}>
+                {[...dupSal].sort().join(' · ')}
+              </span>
+            </span>
+          }
+          action={
+            <Space>
+              {!soloDups
+                ? <Button size="small" onClick={() => setSoloDups(true)} style={{ borderColor: '#7a1a1a', color: '#7a1a1a' }}>Ver solo duplicados</Button>
+                : <Button size="small" onClick={() => setSoloDups(false)}>Ver todos</Button>
+              }
+            </Space>
+          }
+        />
+      )}
+
       <Row gutter={12} style={{ marginBottom: 16 }}>
         {[
           { title: 'Registros',      value: filtrado.length },
@@ -414,7 +479,8 @@ function TabSalidas({ datos, onActualizar }) {
       <Card size="small" styles={{ body: { padding: 0 } }}>
         <Table dataSource={filtrado} columns={columns} rowKey="id" size="small" scroll={{ x: 900 }}
           pagination={{ pageSize: 20, showSizeChanger: true, showTotal: t => `${t} registros` }}
-          locale={{ emptyText: 'No se encontraron registros' }} />
+          locale={{ emptyText: 'No se encontraron registros' }}
+          rowClassName={r => dupSal.has(r.cod_registro) ? 'dup-row' : ''} />
       </Card>
 
       <Modal open={!!editRecord} title="Editar Salida" onCancel={() => setEditRecord(null)} footer={null} width={600} destroyOnHidden>
@@ -449,6 +515,18 @@ export default function Consulta() {
   const [habitantes, setHabitantes] = useState([])
   const [loading,    setLoading]    = useState(true)
 
+  const dupIng = useMemo(() => {
+    const conteo = {}
+    ingresos.forEach(r => { const k = String(r.factura); conteo[k] = (conteo[k]||0)+1 })
+    return new Set(Object.keys(conteo).filter(k => conteo[k] > 1))
+  }, [ingresos])
+
+  const dupSal = useMemo(() => {
+    const conteo = {}
+    salidas.forEach(r => { const k = r.cod_registro; conteo[k] = (conteo[k]||0)+1 })
+    return new Set(Object.keys(conteo).filter(k => conteo[k] > 1))
+  }, [salidas])
+
   async function cargarTodo() {
     setLoading(true)
     try {
@@ -468,12 +546,12 @@ export default function Consulta() {
     {
       key: 'ing',
       label: <span style={{ color: '#1a5c2a', fontWeight: 500 }}>Ingresos</span>,
-      children: <TabIngresos datos={ingresos} habitantes={habitantes} onActualizar={cargarTodo} />,
+      children: <TabIngresos datos={ingresos} habitantes={habitantes} onActualizar={cargarTodo} dupIng={dupIng} />,
     },
     {
       key: 'sal',
       label: <span style={{ color: '#7a1a1a', fontWeight: 500 }}>Salidas</span>,
-      children: <TabSalidas datos={salidas} onActualizar={cargarTodo} />,
+      children: <TabSalidas datos={salidas} onActualizar={cargarTodo} dupSal={dupSal} />,
     },
   ]
 
