@@ -2,6 +2,10 @@ Options -Indexes
 DirectoryIndex index.html
 RewriteEngine On
 
+# Archivos estáticos (JS/CSS/imágenes) — servir directamente sin redirigir
+RewriteCond %{REQUEST_URI} ^/activos/ [NC]
+RewriteRule ^ - [L]
+
 # Redirigir peticiones /api/ al backend PHP
 RewriteCond %{REQUEST_URI} ^/api [NC]
 RewriteRule ^ - [L]
@@ -9,7 +13,7 @@ RewriteRule ^ - [L]
 # Para React Router: todas las rutas no existentes → index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [QSA,L]
+RewriteRule ^ /index.html [QSA,L]
 
 # index.html: nunca cachear (browser ni LiteSpeed)
 <FilesMatch "^index\.html$">
