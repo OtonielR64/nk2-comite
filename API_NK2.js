@@ -269,43 +269,45 @@ function getIngresos() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BD_INGRESOS');
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
-  return sheet.getRange(2, 1, lastRow - 1, 15).getValues()
-    .filter(r => r[0] !== '')
-    .map(r => {
-      // 1. Convertir fechas a cadena ISO
-      r = r.map(c => c instanceof Date ? Utilities.formatDate(c, 'America/Bogota', 'yyyy-MM-dd') : c);
-
-      // 2. Detectar formato de 15 cols (col B = clave_compuesta como "10678-17"):
-      //    En ese caso r[1] NO es una fecha ISO → eliminarlo para normalizar a 14 cols.
-      const esFecha = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
-      if (!esFecha(r[1])) {
-        r.splice(1, 1);
-      }
-
-      // 3. Detectar registros viejos sin cod_admin/administrador:
-      //    Nuevo: r[4]=cod_admin, r[5]=admin, r[6]=cod_concepto(11-20), r[7]=concepto
-      //    Viejo: r[4]=cod_concepto(11-20), r[5]=concepto, r[6]=vlr_admon(monto grande)
-      //    Distinción: en registros nuevos r[6] ES un código 11-20 (entero exacto).
-      //    En registros viejos r[6] es el monto de vlr_admon (número mayor a 20).
-      const codPos4 = parseInt(r[4]);
-      const codPos6 = parseInt(r[6]);
-      const r6esCodigoConcepto = codPos6 >= 11 && codPos6 <= 20
-        && String(r[6]).trim() === String(codPos6);
-      if (codPos4 >= 11 && codPos4 <= 20 && !r6esCodigoConcepto) {
-        r.splice(4, 0, '', '');
-      }
-
-      return r.slice(0, 14);
-    });
+  const rows = sheet.getRange(2, 1, lastRow - 1, 15).getValues();
+  const result = [];
+  for (let i = 0; i < rows.length; i++) {
+    let r = rows[i];
+    if (r[0] === '') continue;
+    const sheetRow = i + 2; // fila real en el sheet (antes de filtrar)
+    r = r.map(c => c instanceof Date ? Utilities.formatDate(c, 'America/Bogota', 'yyyy-MM-dd') : c);
+    const esFecha = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    if (!esFecha(r[1])) {
+      r.splice(1, 1);
+    }
+    const codPos4 = parseInt(r[4]);
+    const codPos6 = parseInt(r[6]);
+    const r6esCodigoConcepto = codPos6 >= 11 && codPos6 <= 20
+      && String(r[6]).trim() === String(codPos6);
+    if (codPos4 >= 11 && codPos4 <= 20 && !r6esCodigoConcepto) {
+      r.splice(4, 0, '', '');
+    }
+    const normalized = r.slice(0, 14);
+    normalized[14] = sheetRow; // índice 14: fila real para deleteRow
+    result.push(normalized);
+  }
+  return result;
 }
 
 function getSalidas() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('BD_SALIDAS');
   const lastRow = sheet.getLastRow();
   if (lastRow <= 1) return [];
-  return sheet.getRange(2, 1, lastRow - 1, 10).getValues()
-    .filter(r => r[0] !== '')
-    .map(r => r.map(c => c instanceof Date ? Utilities.formatDate(c, 'America/Bogota', 'yyyy-MM-dd') : c));
+  const rows = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  const result = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (r[0] === '') continue;
+    const normalized = r.map(c => c instanceof Date ? Utilities.formatDate(c, 'America/Bogota', 'yyyy-MM-dd') : c);
+    normalized[10] = i + 2; // índice 10: fila real para deleteRow
+    result.push(normalized);
+  }
+  return result;
 }
 
 function updateIngreso(p) {
@@ -338,7 +340,13 @@ function updateSalida(p) {
 
 function deleteRow(p) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(p.sheet);
-  sheet.deleteRow(parseInt(p.rowIndex));
+  if (!sheet) return { ok: false, error: 'Hoja no encontrada: ' + p.sheet };
+  const rowIndex = parseInt(p.rowIndex);
+  const lastRow = sheet.getLastRow();
+  if (isNaN(rowIndex) || rowIndex < 2 || rowIndex > lastRow) {
+    return { ok: false, error: 'Fila inválida: ' + p.rowIndex + ' (rango 2-' + lastRow + ')' };
+  }
+  sheet.deleteRow(rowIndex);
   return { ok: true, mensaje: 'Registro eliminado correctamente' };
 }
 

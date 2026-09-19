@@ -647,7 +647,7 @@ async function apiFetch(action, params = {}, { retries = 2, timeout = 35000 } = 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeout);
     try {
-      const r = await fetch(API_URL + '?' + qs, { signal: ctrl.signal });
+      const r = await fetch(API_URL + '?' + qs, { signal: ctrl.signal, cache: 'no-store' });
       clearTimeout(timer);
       return await r.json();
     } catch (e) {
@@ -779,7 +779,7 @@ function renderPaginaIng() {
       <td>
         <button class="btn btn-sm btn-print" onclick="reimprimirRecibo(${gi})">🖨 Imprimir</button>
         <button class="btn btn-sm btn-edit" style="margin-left:4px" onclick="abrirEditIng(${gi})">Editar</button>
-        <button class="btn btn-sm btn-del" style="margin-left:4px" onclick="abrirConfirm('ing',${gi})">Eliminar</button>
+        <button class="btn btn-sm btn-del" style="margin-left:4px" onclick="abrirConfirm('ing',${gi},${r[14]})">Eliminar</button>
       </td>
     </tr>`;
   }).join('');
@@ -855,7 +855,7 @@ function renderPaginaSal() {
       <td style="max-width:150px;white-space:normal;font-size:11px">${r[9]||''}</td>
       <td>
         <button class="btn btn-sm btn-edit" onclick="abrirEditSal(${gi})">Editar</button>
-        <button class="btn btn-sm btn-del" style="margin-left:4px" onclick="abrirConfirm('sal',${gi})">Eliminar</button>
+        <button class="btn btn-sm btn-del" style="margin-left:4px" onclick="abrirConfirm('sal',${gi},${r[10]})">Eliminar</button>
       </td>
     </tr>`;
   }).join('');
@@ -1012,8 +1012,8 @@ async function guardarEdicionSal() {
 }
 
 // ══════════ ELIMINAR ══════════
-function abrirConfirm(tipo, i) {
-  pendingDelete = { tipo, i };
+function abrirConfirm(tipo, i, sheetRow) {
+  pendingDelete = { tipo, i, sheetRow };
   const el = document.getElementById('confirm-detalle');
   if (tipo === 'ing') {
     const r = datosIng[i];
@@ -1030,8 +1030,8 @@ function cerrarConfirm() {
 }
 async function confirmarEliminar() {
   if (!pendingDelete) return;
-  const { tipo, i } = pendingDelete;
-  const rowIndex = i + 2;
+  const { tipo, i, sheetRow } = pendingDelete;
+  const rowIndex = sheetRow;
 
   // Capturar datos del registro ANTES de eliminar
   let detalle;
@@ -1072,7 +1072,7 @@ function exportarExcel(tipo) {
   const headers = tipo === 'ing'
     ? ['Recibo','Fecha','Interior','Nombre','Cod Admin','Administrador','Cod Concepto','Concepto','Vlr Admón','Vlr Vehículo','Mes Pago','Cantidad','Total','Observación']
     : ['N° Registro','Fecha','Cod Admin','Administrador','Cod Concepto','Concepto','Vlr Total','Abono','Saldo','Observación'];
-  const csv = [headers.join(','), ...data.map(r => r.map(c => '"'+(c||'')+'"').join(','))].join('\n');
+  const csv = [headers.join(','), ...data.map(r => r.slice(0, headers.length).map(c => '"'+(c||'')+'"').join(','))].join('\n');
   const blob = new Blob(['\ufeff'+csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
