@@ -73,6 +73,11 @@
   .badge-sal { background: var(--sal-light); color: var(--sal); }
   .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
   .loading-row { text-align: center; padding: 30px; color: var(--muted); font-size: 13px; }
+  .dup-banner { background: #fff3cd; border: 1px solid #f0c040; border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; font-size: 13px; display: none; }
+  .dup-banner strong { color: #7a5800; }
+  .dup-lista { margin: 6px 0 10px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5a4200; }
+  .dup-banner .btn-dup { padding: 5px 14px; font-size: 12px; background: #e67e00; color: #fff; border: none; border-radius: var(--radius); cursor: pointer; margin-right: 8px; font-family: 'IBM Plex Sans', sans-serif; }
+  tr.dup-row td { background: #fff8dc !important; }
 
   /* PAGINACIÓN */
   .paginacion { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: #fafaf8; }
@@ -134,6 +139,20 @@
     <strong>⚙ CONFIGURACIÓN — URL DE LA API</strong>
     <input type="text" id="api-url-input" placeholder="https://script.google.com/macros/s/.../exec">
     <button onclick="conectarAPI()">Conectar</button>
+  </div>
+
+  <!-- ALERTA DUPLICADOS -->
+  <div class="dup-banner" id="dup-banner-ing">
+    <strong>⚠ Recibos duplicados en Ingresos</strong>
+    <div class="dup-lista" id="dup-lista-ing"></div>
+    <button class="btn-dup" onclick="verSoloDuplicadosIng()">Ver solo duplicados</button>
+    <button class="btn-dup" onclick="limpiarFiltrosIng()" style="background:#6b6b66">Ver todos</button>
+  </div>
+  <div class="dup-banner" id="dup-banner-sal">
+    <strong>⚠ Registros duplicados en Salidas</strong>
+    <div class="dup-lista" id="dup-lista-sal"></div>
+    <button class="btn-dup" onclick="verSoloDuplicadosSal()">Ver solo duplicados</button>
+    <button class="btn-dup" onclick="limpiarFiltrosSal()" style="background:#6b6b66">Ver todos</button>
   </div>
 
   <!-- ══════ INGRESOS ══════ -->
@@ -637,6 +656,32 @@ async function apiFetch(action, params = {}, { retries = 2, timeout = 35000 } = 
   }
 }
 
+let dupIng = new Set(); // recibos duplicados en ingresos
+let dupSal = new Set(); // registros duplicados en salidas
+
+function detectarDups(data) {
+  const conteo = {};
+  data.forEach(r => { const k = String(r[0]); conteo[k] = (conteo[k]||0)+1; });
+  return new Set(Object.keys(conteo).filter(k => conteo[k] > 1));
+}
+
+function mostrarBannerDups(tipo, dups) {
+  const banner = document.getElementById('dup-banner-' + tipo);
+  const lista  = document.getElementById('dup-lista-' + tipo);
+  if (dups.size === 0) { banner.style.display = 'none'; return; }
+  lista.textContent = [...dups].sort((a,b)=>Number(a)-Number(b)).join(' · ');
+  banner.style.display = 'block';
+}
+
+function verSoloDuplicadosIng() {
+  switchTab('ing');
+  renderIngresos(datosIng.filter(r => dupIng.has(String(r[0]))));
+}
+function verSoloDuplicadosSal() {
+  switchTab('sal');
+  renderSalidas(datosSal.filter(r => dupSal.has(String(r[0]))));
+}
+
 async function cargarTodo() {
   setLoading('ing'); setLoading('sal');
   try {
@@ -647,9 +692,13 @@ async function cargarTodo() {
     ]);
     datosIng = ing || [];
     datosSal = sal || [];
+    dupIng = detectarDups(datosIng);
+    dupSal = detectarDups(datosSal);
     poblarFiltroInterior(hab || []);
     renderIngresos(datosIng);
     renderSalidas(datosSal);
+    mostrarBannerDups('ing', dupIng);
+    mostrarBannerDups('sal', dupSal);
   } catch(e) {
     document.getElementById('tbody-ing').innerHTML = '<tr><td colspan="11" class="empty">Error de conexión</td></tr>';
     document.getElementById('tbody-sal').innerHTML = '<tr><td colspan="9" class="empty">Error de conexión</td></tr>';
@@ -712,9 +761,10 @@ function renderPaginaIng() {
   const end = Math.min(start + PAGE_SIZE, total);
   tbody.innerHTML = filtradoIng.slice(start, end).map(r => {
     const gi = datosIng.indexOf(r);
+    const isDup = dupIng.has(String(r[0]));
     return `
-    <tr>
-      <td><span class="badge badge-ing">${r[0]}</span></td>
+    <tr${isDup ? ' class="dup-row"' : ''}>
+      <td><span class="badge badge-ing">${r[0]}</span>${isDup ? ' <span style="color:#c0392b;font-size:10px;font-weight:700">DUP</span>' : ''}</td>
       <td>${fmtFecha(r[1])}</td>
       <td>${r[2]}</td>
       <td>${r[3]}</td>
@@ -790,9 +840,10 @@ function renderPaginaSal() {
   const end = Math.min(start + PAGE_SIZE, total);
   tbody.innerHTML = filtradoSal.slice(start, end).map(r => {
     const gi = datosSal.indexOf(r);
+    const isDup = dupSal.has(String(r[0]));
     return `
-    <tr>
-      <td><span class="badge badge-sal">${r[0]}</span></td>
+    <tr${isDup ? ' class="dup-row"' : ''}>
+      <td><span class="badge badge-sal">${r[0]}</span>${isDup ? ' <span style="color:#c0392b;font-size:10px;font-weight:700">DUP</span>' : ''}</td>
       <td>${fmtFecha(r[1])}</td>
       <td>${r[3]}</td>
       <td>${r[4]} — ${r[5]}</td>
