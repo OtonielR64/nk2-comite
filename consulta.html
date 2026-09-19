@@ -985,8 +985,17 @@ async function confirmarEliminar() {
   cerrarConfirm();
   try {
     const res = await apiFetch('deleteRow', { sheet: tipo === 'ing' ? 'BD_INGRESOS' : 'BD_SALIDAS', rowIndex }, { retries: 0, timeout: 60000 });
-    if(res.ok){ logAuditEvent(localStorage.getItem('nk2_user')||'?', 'ELIMINAR', detalle); await cargarTodo(); alert('Registro eliminado correctamente.'); }
-    else alert('Error: ' + res.error);
+    if(res.ok){
+      logAuditEvent(localStorage.getItem('nk2_user')||'?', 'ELIMINAR', detalle);
+      // Eliminar del array local de inmediato — no esperar al servidor para reflejar el cambio
+      if (tipo === 'ing') { datosIng.splice(i, 1); renderIngresos(datosIng); }
+      else                { datosSal.splice(i, 1); renderSalidas(datosSal); }
+      alert('Registro eliminado correctamente.');
+      // Sincronizar con el servidor en segundo plano
+      cargarTodo();
+    } else {
+      alert('Error: ' + res.error);
+    }
   } catch(e) { alert('Error de conexión.'); }
 }
 
