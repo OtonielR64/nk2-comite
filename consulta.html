@@ -1036,15 +1036,21 @@ async function confirmarEliminar() {
   cerrarConfirm();
   try {
     const res = await apiFetch('deleteRow', { sheet: tipo === 'ing' ? 'BD_INGRESOS' : 'BD_SALIDAS', rowIndex }, { retries: 0, timeout: 60000 });
-    // DEBUG TEMPORAL — muestra qué envió y qué respondió el servidor
-    alert('DEBUG\nrowIndex enviado: ' + rowIndex + '\nRespuesta servidor: ' + JSON.stringify(res));
     if(res.ok){
       logAuditEvent(localStorage.getItem('nk2_user')||'?', 'ELIMINAR', detalle);
-      if (tipo === 'ing') { datosIng.splice(i, 1); renderIngresos(datosIng); }
-      else                { datosSal.splice(i, 1); renderSalidas(datosSal); }
-      cargarTodo();
+      if (tipo === 'ing') {
+        datosIng.splice(i, 1);
+        dupIng = detectarDups(datosIng);
+        mostrarBannerDups('ing', dupIng);
+        renderIngresos(datosIng);
+      } else {
+        datosSal.splice(i, 1);
+        dupSal = detectarDups(datosSal);
+        mostrarBannerDups('sal', dupSal);
+        renderSalidas(datosSal);
+      }
     } else {
-      alert('Error: ' + res.error);
+      alert('Error al eliminar: ' + (res.error || 'respuesta inesperada del servidor'));
     }
   } catch(e) { alert('Error de conexión: ' + e.message); }
 }
