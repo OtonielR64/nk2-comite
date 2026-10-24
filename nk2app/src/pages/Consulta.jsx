@@ -192,7 +192,7 @@ function TabIngresos({ datos, habitantes, onActualizar, dupIng }) {
           {dupIng.has(String(v)) && <span style={{ color: '#c0392b', fontSize: 10, fontWeight: 700 }}>DUP</span>}
         </Space>
       ),
-      sorter: (a,b) => a.factura - b.factura },
+      sorter: (a,b) => a.factura - b.factura, defaultSortOrder: 'descend' },
     { title: 'Fecha',     dataIndex: 'fecha',        key: 'fecha',     render: v => fmtFecha(v), sorter: (a,b) => a.fecha.localeCompare(b.fecha) },
     { title: 'Interior',  dataIndex: 'interior',     key: 'interior' },
     { title: 'Nombre',    dataIndex: 'nombre',       key: 'nombre' },
@@ -404,8 +404,9 @@ function TabSalidas({ datos, onActualizar, dupSal }) {
           <Tag color="red">{v}</Tag>
           {dupSal.has(v) && <span style={{ color: '#c0392b', fontSize: 10, fontWeight: 700 }}>DUP</span>}
         </Space>
-      )
-    },
+      ),
+      sorter: (a,b) => parseInt(String(a.cod_registro).replace('NK-','')) - parseInt(String(b.cod_registro).replace('NK-','')),
+      defaultSortOrder: 'descend' },
     { title: 'Fecha',        dataIndex: 'fecha',          key: 'fecha',  render: v => fmtFecha(v), sorter: (a,b) => a.fecha.localeCompare(b.fecha) },
     { title: 'Administrador',dataIndex: 'administrador',  key: 'admin' },
     { title: 'Concepto',     key: 'concepto',             render: (_, r) => `${r.cod_concepto} — ${r.concepto}` },
