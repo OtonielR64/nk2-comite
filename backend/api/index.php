@@ -298,7 +298,7 @@ function route_get_ingresos() {
     json_ok(db()->query(
         'SELECT id,factura,fecha,interior,nombre,cod_admin,administrador,
                 cod_concepto,concepto,vlr_admon,vlr_vehiculo,mes_pago,cantidad,total,observacion
-         FROM bd_ingresos ORDER BY fecha DESC, factura DESC'
+         FROM bd_ingresos ORDER BY factura DESC'
     )->fetchAll());
 }
 
@@ -372,7 +372,7 @@ function route_get_salidas() {
     json_ok(db()->query(
         'SELECT id,cod_registro,fecha,cod_admin,administrador,
                 cod_concepto,concepto,vlr_total,abono,saldo,observacion
-         FROM bd_salidas ORDER BY fecha DESC'
+         FROM bd_salidas ORDER BY CAST(REPLACE(cod_registro, "NK-", "") AS UNSIGNED) DESC'
     )->fetchAll());
 }
 
