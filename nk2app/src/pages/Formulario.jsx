@@ -105,9 +105,7 @@ function TabIngreso({ habitantes, personal, totales, onGuardado, recibosExistent
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const [campos, setCampos] = useState({ admon: true, vehiculo: true })
-  const watchAdmon    = Form.useWatch('vlr_admon',    form) || 0
-  const watchVehiculo = Form.useWatch('vlr_vehiculo', form) || 0
-  const totalPagar    = watchAdmon + watchVehiculo
+  const [totalPagar, setTotalPagar] = useState(0)
 
   function onConceptoChange(val) {
     const est = estadoCampos(val)
@@ -201,6 +199,11 @@ function TabIngreso({ habitantes, personal, totales, onGuardado, recibosExistent
       form={form}
       layout="vertical"
       initialValues={{ fecha: dayjs(), cantidad: 1, mes_pago: mesActual, vlr_admon: 0, vlr_vehiculo: 0 }}
+      onValuesChange={(_, all) => {
+        const a = campos.admon    ? (all.vlr_admon    || 0) : 0
+        const v = campos.vehiculo ? (all.vlr_vehiculo || 0) : 0
+        setTotalPagar(a + v)
+      }}
     >
       <Row gutter={16}>
         <Col xs={24} sm={12}>
